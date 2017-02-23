@@ -9,7 +9,7 @@ function [out errormsg] = fn_chardisplay(varargin)
 % 
 
 % Thomas Deneux
-% Copyright 20013-2013
+% Copyright 2013-2017
 
 if nargin==0, help fn_chardisplay, return, end
 
@@ -30,10 +30,12 @@ if nargin==1
             str(end-1:end) = [];
             str = regexprep(str,' *',' ');
         else
+            str = [];
             errormsg = 'cannot display array with more than 2 dimensions or 22 elements';
         end
     else
-        errormsg = 'class ''%s'' cannot be represented has a string';
+        str = [];
+        errormsg = sprintf('class ''%s'' cannot be represented has a string',class(val));
     end
     out = str;
 elseif nargin==2

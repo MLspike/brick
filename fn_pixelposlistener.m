@@ -7,7 +7,10 @@ function hl = fn_pixelposlistener(hobj,callback)
 % object 'LocationChanged' event. In earlier versions, this is a wrapper
 % for pixelposwatcher class.
 %
-% See also pixelposwatcher, fn_pixelsizelistener, fn_pixelpos, fn_pixelsize
+% See also fn_pixelpos, fn_pixelsizelistener
+
+% Thomas Deneux
+% Copyright 2015-2017
 
 if fn_matlabversion('newgraphics')
     hl = [addlistener(hobj,'LocationChanged',callback) addlistener(hobj,'SizeChanged',callback)];

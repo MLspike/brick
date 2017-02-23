@@ -7,16 +7,18 @@ function a=fn_readasciimatrix(filename,nheaders)
 %   1.2 3 5.5
 %   4   0 0 
 %   3   3 14
-% empty matrix is returned if file does not exist or if there is no numeric
-% content at any line begin
-% there is no verification that each row is the same length
+% Empty matrix is returned if file does not exist or if there is no numeric
+% content at any line begin.
+% There is no verification that each row is the same length.
+% Only spaces are considered as separators between columns (use Matlab
+% csvread to read comma-separated files!).
 %
 % if 'nheader' is specified, first nheaders lines are skipped anyway
 %
 % See also fn_saveasciimatrix, fn_readdatlabview, fn_readtext, fn_readbin
 
 % Thomas Deneux
-% Copyright 2005-2012
+% Copyright 2005-2017
 
 if nargin==0, filename=fn_getfile; end
 if filename==0, disp(['Could not open file ' filename]), a=[]; return, end 
@@ -40,3 +42,4 @@ end
 fseek(fid,fpos,-1);
 a=fscanf(fid,'%f',[m inf])';
 fclose(fid);
+

@@ -14,7 +14,7 @@ classdef fn_slider < hgsetget
     % See also fn_sliderenhance, fn_sensor, fn_control
     
     % Thomas Deneux
-    % Copyright 2007-2012
+    % Copyright 2007-2017
     properties
         inc = 0;
         minmax = [0 1];
@@ -73,11 +73,6 @@ classdef fn_slider < hgsetget
         right           
         center      
         pointpos
-    end
-    
-    % Events
-    events
-        Delete
     end
     
     % Constructor/Destructor
@@ -142,7 +137,6 @@ classdef fn_slider < hgsetget
             sliderposition(U)
         end
         function delete(U)
-            notify(U,'Delete')
             if ~isempty(U.deletefcn)
                 fn_evalcallback(U.deletefcn,U.hpanel,[])
                 U.deletefcn = '';
@@ -186,7 +180,7 @@ classdef fn_slider < hgsetget
             c = get(U.hpanel,'backgroundcolor');
         end
         function set.backgroundcolor(U,c)
-            set(U.hpanel,'backgroundcolor',c);
+            set([U.hpanel U.hframe],'backgroundcolor',c);
         end
         function c = get.slidercolor(U)
             c = get(U.hslider,'backgroundcolor');
@@ -686,7 +680,7 @@ classdef fn_slider < hgsetget
                     % slide
                     p0 = mouseposframe(U);
                     if strcmp(flag,'slider') && U.area
-                        PIX = 2;
+                        PIX = 4;
                         xs = mouseposslider(U);
                         if xs(1)<=PIX
                             flag = 'left';
@@ -829,23 +823,12 @@ end
 function pos = mousepos(hobj)
 % position in pixel units of pointer in current container (figure or
 % uipanel)
-% this is SHITTY!!!
 
-switch get(hobj,'type')
-    case 'figure'
-        tmp = get(hobj,'units');
-        set(hobj,'units','pixel')
-        pos = get(hobj,'currentpoint');
-        set(hobj,'units',tmp)
-    case 'uipanel'
-        tmp = get(hobj,'units');
-        set(hobj,'units','pixel')
-        panelpos = get(hobj,'position');
-        set(hobj,'units',tmp)
-        pos = mousepos(get(hobj,'parent'));
-        pos = pos-(panelpos(1:2)-1);
-    otherwise
-        error programming
+hf = fn_parentfigure(hobj);
+pos = get(hf,'CurrentPoint');
+if strcmp(get(hobj,'type'),'uipanel')
+    panelpos = round(fn_pixelpos(hobj,'recursive'));
+    pos = pos-panelpos(1:2);
 end
 
 end

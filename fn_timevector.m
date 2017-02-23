@@ -23,7 +23,7 @@ function y = fn_timevector(x,t,outputtype)
 % - times       row vector or cell array of row vectors
 
 % Thomas Deneux
-% Copyright 2010-2012
+% Copyright 2010-2017
 
 if nargin==0, help fn_timevector, return, end
 
@@ -36,7 +36,9 @@ if xisarray
     inputtype = 'count';
 else
     if iscell(x), xtest=x{1}; else xtest=x; end
-    if all(xtest) || any(mod(xtest,1)) || length(xtest)<10 || ~any(xtest==0)
+    if any(isnan(xtest))
+        inputtype = 'count';
+    elseif all(xtest) || any(mod(xtest,1)) || length(xtest)<10 || ~any(xtest==0)
         inputtype = 'times';
     else
         inputtype = 'count';
@@ -174,7 +176,7 @@ switch convtype
         times = zeros(1,sum(count));
         idx = 0;
         for i=find(count)'
-            ci = count(i);
+            ci = double(count(i));
             times(idx+(1:ci)) = t0+(i-1)*dt;
             idx = idx+ci;
         end

@@ -1,4 +1,8 @@
 classdef montage < interface
+    % GUI program for manual alignment of a large set of images
+    
+    % Thomas Deneux
+    % Copyright 2015-2017
 
     properties
         im = immodel('empty');
@@ -12,10 +16,6 @@ classdef montage < interface
     end
     properties (SetObservable = true)
         showinactive = true;
-    end
-    
-    events
-        Delete
     end
     
     methods
@@ -34,9 +34,6 @@ classdef montage < interface
             else
                 load_example(M)
             end
-        end
-        function delete(M)
-            notify(M,'Delete')
         end
         function init_grob(M)
             M.grob.ha = axes( ...
@@ -793,7 +790,7 @@ classdef montage < interface
                 M.numredo = 0;
             end
             s = M.im;
-            [s.h] = deal([]); % handles should not be stored
+            if ~isempty(s), [s.h] = deal([]); end % handles should not be stored
             if ~isempty(M.lastim) && isequal(M.lastim{end},s), return, end
             if M.numredo>0
                 M.lastim(end-(0:M.numredo-1)) = [];

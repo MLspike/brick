@@ -9,9 +9,8 @@ function c = fn_ismemberstr(a,b,doerrorflag)
 % function generates an error if any element of a does not match an element
 % in b.
 
-
 % Thomas Deneux
-% Copyright 2007-2012
+% Copyright 2007-2017
 
 if ~iscell(a)
     a = {a}; 

@@ -13,7 +13,7 @@ function hl = fn_plotscale(varargin)
 % See also fn_scale
 
 % Thomas Deneux
-% Copyright 2007-2012
+% Copyright 2007-2017
 
 if nargin==0, help fn_plotscale, return, end
     
@@ -52,7 +52,7 @@ if isempty(tysize)
         tsize=0; 
     else
         tokens = regexp(tlabel,'^([.0-9]*|auto)','tokens');
-        tokens = tokens{1};
+        if isempty(tokens), tokens = {'1' ''}; else tokens = tokens{1}; end
         if strcmp(tokens{1},'auto')
             [tsize str] = autoScaleLength(ha,'x');
             tlabel = strrep(tlabel,'auto',str);
@@ -63,8 +63,8 @@ if isempty(tysize)
     if isempty(ylabel)
         ysize=0; 
     else
-        tokens = regexp(ylabel,'^([.0-9]*|auto)(%{0,1})','tokens');
-        tokens = tokens{1};
+        tokens = regexp(ylabel,'^([.0-9]*(\.[0-9]*){0,1}(e-{0,1}[0-9]+){0,1}|auto)(%{0,1})','tokens');
+        if isempty(tokens), tokens = {'1' ''}; else tokens = tokens{1}; end
         if strcmp(tokens{1},'auto')
             if strcmp(tokens{2},'%')
                 [ysize str] = autoScaleLength(ha,'y',100);
@@ -136,9 +136,9 @@ function [sz label] = autoScaleLength(ha,flag,factor)
 axsz = fn_pixelsize(ha);
 switch flag
     case 'x'
-        target = 0.2 * diff(get(ha,'xlim'))*(min(axsz)/axsz(1));
+        target = 0.15 * diff(get(ha,'xlim'))*(min(axsz)/axsz(1));
     case 'y'
-        target = 0.2 * diff(get(ha,'ylim'))*(min(axsz)/axsz(2));
+        target = 0.15 * diff(get(ha,'ylim'))*(min(axsz)/axsz(2));
 end
 leads = [1 2 5];                        % possible leading number
 dlog = log10(target./leads);             % corresponding exponent

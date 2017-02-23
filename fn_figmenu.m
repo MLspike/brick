@@ -9,7 +9,7 @@ function fn_figmenu(hf,varargin)
 % you should use 'fn_cd edit' to define where is this directory 'capture'.
 
 % Thomas Deneux
-% Copyright 2007-2012
+% Copyright 2007-2017
 
 if nargin==0
     hfs = findobj('type','figure');
@@ -64,7 +64,7 @@ uimenu(m,'label','reset figure callbacks', ...
 uimenu(m,'label','fn_clipcontrol','Callback','fn_clipcontrol','separator','on')
 uimenu(m,'label','fn_imdistline','Callback','fn_imdistline')
 
-items.savedefmenu = uimenu(m,'label','save PNG','separator','on', ...
+items.savedefmenu = uimenu(m,'label','save SVG','separator','on', ...
     'callback',@(u,evnt)savefig(hf,'default'));
 m1 = uimenu(m,'label','save PDF');
 uimenu(m1,'label','scale 1', ...
@@ -116,7 +116,7 @@ pos = get(hf,'pos');
 % fprintf('figure size: %i %i %i %i, set(%i,''pos'',[%i %i %i %i])\n',pos,hf,pos)
 if isnumeric(hf), fignum=hf; else fignum=get(hf,'Number'); end
 fprintf('figure size: %i %i %i %i, fn_setfigsize(%i,%i,%i) %%\n',pos,fignum,pos(3:4))
-clipboard('copy',sprintf('%i,%i',pos(3:4)))
+clipboard('copy',sprintf('[%i %i]',pos(3:4)))
 
 %---
 function savefig(hf,flag,varargin)
@@ -127,7 +127,7 @@ switch flag
         if isfield(items,'savedef')
             fn_savefig(hf,items.savedef{:})
         else
-            fn_savefig(hf,'autoname','capture')
+            fn_savefig(hf,'autoname','svg')
         end
     case 'PDF'
         fn_savefig(hf,'autoname','pdf','scaling',varargin{1})
@@ -158,15 +158,32 @@ switch flag
         fn_savefig(hf,fname,'ps2pdf');
     case 'clipboard'
         x = getframe(hf);
-        imclipboard('copy',x.cdata)
+        x = x.cdata;
+        isbgcol = all(fn_eq(x,x(1,1,:)),3);
+        idx = find(~all(isbgcol,1)); x = x(:,idx(1):idx(end),:);
+        idx = find(~all(isbgcol,2)); x = x(idx(1):idx(end),:,:);
+        imclipboard('copy',x)
 end
 
 %---
 function saveimage(hf,flag)
 
-im = findobj(hf,'type','image');
-if ~isscalar(im)
-    errordlg('figure should contain one and only one image');
+im = flipud(findobj(hf,'type','image')); % from first to last created, this is more natural
+if isempty(im)
+    errordlg('no image found in figure')
+    return
+elseif ~isscalar(im)
+    n = length(im);
+    cdata = get(im,'cdata');
+    desc = cell(1,n);
+    for i=1:n
+        ci = cdata{i};
+        desc{i} = [fn_strcat(size(ci),'*') ' ' class(ci)];
+    end
+    [selection ok] = listdlg('PromptString','Which image do you want to save?', ...
+        'ListString',desc,'SelectionMode','single');
+    if ~ok, return, end
+    im = im(selection);
 end
 cdata = get(im,'cdata');
 
@@ -189,7 +206,8 @@ end
 %---
 function copypart(hf,flag)
 
-ha = gca;
+hv = get(hf,'handlevisibility');
+set(hf,'handlevisibility','on'), ha = gca; set(hf,'handlevisibility',hv)
 if fn_parentfigure(ha)~=hf, errormsg 'select axes first', return, end
 
 switch flag

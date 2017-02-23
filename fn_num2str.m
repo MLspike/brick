@@ -9,7 +9,7 @@ function s = fn_num2str(x,varargin)
 % See also fn_str2double, fn_strcat, fn_chardisplay
 
 % Thomas Deneux
-% Copyright 2007-2012
+% Copyright 2007-2017
 
 if nargin==0, help fn_num2str, return, end
 
@@ -50,5 +50,10 @@ end
 
 % convert back to char if required
 if ~docell
+    % add spaces in the 2nd dimension
+    if size(s,2)>1
+        s = fn_interleave(2,s,repmat({' '},size(s)));
+        s(:,end,:) = [];
+    end
     s = cell2mat(s);
 end

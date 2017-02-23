@@ -1,7 +1,7 @@
 function hl = fn_arrow(xdata,ydata,varargin)
 % function [hl =] fn_arrow(xdata,ydata[,tiplength[,tipangle[,thickness]]][,'simple|double'][,'line|patch'][,parname1,value1,...])
 %---
-% fn_arrow draws an arrow
+% Draw an arrow
 % 
 % Input:
 % - xdata,ydata     vectors of length 2 - coordinates of the main line of
@@ -19,6 +19,9 @@ function hl = fn_arrow(xdata,ydata,varargin)
 %                   arrow [default: simple]
 % - 'line' or 'patch'       arrow style [default: line]
 % - parameter/value pairs   line or patch properties
+
+% Thomas Deneux
+% Copyright 2015-2017
 
 % Input
 if isscalar(xdata)

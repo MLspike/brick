@@ -15,7 +15,7 @@ function fn_progress(varargin)
 % See also pg
 
 % Thomas Deneux
-% Copyright 2003-2012 
+% Copyright 2003-2017 
 
 persistent x            % structure with persistent information
 persistent ht0          % default place for displaying progress (handle or '' for command prompt)
@@ -23,7 +23,7 @@ persistent ht0          % default place for displaying progress (handle or '' fo
 % detect nested call to fn_progress
 stack = dbstack; 
 if isscalar(stack), caller = ''; else caller = stack(2).name; end
-if isempty(x)
+if isempty(x) || ~isfield(x,'caller')
     calllevel = 0; 
 elseif strcmp(caller,x(1).caller) 
     calllevel = 1; 

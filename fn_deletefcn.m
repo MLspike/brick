@@ -4,6 +4,9 @@ function fn_deletefcn(hu,deletefcn)
 % Set the 'DeleteFcn' property of a graphic object in such a way that
 % several functions can be executed upon its deletion.
 
+% Thomas Deneux
+% Copyright 2015-2017
+
 if ishandle(hu)
     
     if isappdata(hu,'fn_deletefcn')
@@ -27,11 +30,11 @@ if ishandle(hu)
 
 elseif isobject(hu)
     
-    addlistener(hu,'Delete',deletefcn);
+    addlistener(hu,'ObjectBeingDestroyed',deletefcn);
     
 else
     
-    error 'hu must be a graphic handle or an object that has a ''Delete'' event'
+    error 'hu must be a handle object'
     
 end
 

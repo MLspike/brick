@@ -6,6 +6,9 @@ function whoisbig(varargin)
 %           workspace]
 % - minsize e.g.: 10M [default], G, 100k, 0
 
+% Thomas Deneux
+% Copyright 2015-2017
+
 % Input
 var = []; minsize = [];
 for k=1:length(varargin)
@@ -13,7 +16,7 @@ for k=1:length(varargin)
     if isequal(a,0)
         minsize = a;
     elseif ischar(a)
-        tokens = regexpi(a,'^([\d.]*)([KMG]{0,1})$','tokens');
+        tokens = regexpi(a,'^([\d.]*)([KMG]{0,1})B{0,1}$','tokens');
         if ~isempty(tokens)
             [n u] = deal(tokens{1}{:});
             minsize = fn_switch(isempty(n),1,str2double(n)) * 2^fn_switch(lower(u),'',0,'k',10,'m',20,'g',30);
@@ -82,9 +85,7 @@ n = length(w);
 names = char('Name','',w.name);
 
 %% size
-s1 = fn_map(@(s)num2str(s(1)),{w.size},'cell');
-format = ['%' num2str(max(fn_map(@length,s1))) 'i'];
-s1 = char(fn_map(@(s)sprintf('%5i',s(1)),{w.size},'cell'));
+s1 = fliplr(char(fn_map(@(x)fliplr(num2str(x(1))),{w.size},'cell')));
 s2 = char(fn_map(@(s)fn_strcat(s(2:end),'x','x',''),{w.size},'cell'));
 sizes = char('Size','',[s1 s2]);
 

@@ -2,7 +2,10 @@ function fn_display(varargin)
 % function fn_display(x[,format])
 % function fn_display(varname,x[,format])
 %---
-% Fast display of variable
+% Display a variable name and value in a single line
+
+% Thomas Deneux
+% Copyright 2015-2017
 
 if nargin==0, help fn_display, return, end
 

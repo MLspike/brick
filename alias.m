@@ -8,7 +8,7 @@ classdef alias
     % See also <a href="http://blogs.mathworks.com/desktop/2007/03/29/shortcuts-for-commonly-used-code/"> Matlab shortcuts toolbar</a>! 
     
     % Thomas Deneux
-    % Copyright 2009-2012
+    % Copyright 2009-2017
 
  
     properties
@@ -44,9 +44,9 @@ classdef alias
                 str = [c{:}];
                 disp(['saving alias objects found in base workspace: ' str(2:end)])
                 if doappend
-                    str = ['save(''' fmat '''' str ')'];
-                else
                     str = ['save(''' fmat '''' str ',''-APPEND'')'];
+                else
+                    str = ['save(''' fmat '''' str ')'];
                 end
                 evalin('base',str)
             end

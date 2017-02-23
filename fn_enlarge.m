@@ -18,7 +18,7 @@ function data=fn_enlarge(data,varargin)
 % - outsideval  scalar or flag such as 'mean', 'min', 'max' - value to put
 %               in extra space in case that new size is not a perfect
 %               multiple of the original size [default: NaN]
-
+%
 % Note that the function guesses whether to interpret its second argument
 % as 'fact' or 'size'. It chooses 'size' if all elements of the vector are
 % larger than the size of data in the corresponding dimensions.
@@ -26,7 +26,7 @@ function data=fn_enlarge(data,varargin)
 % See also fn_bin
 
 % Thomas Deneux
-% Copyright 2012-2012
+% Copyright 2012-2017
 
 if nargin==0, help fn_enlarge, return, end
 

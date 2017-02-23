@@ -17,17 +17,13 @@ classdef fn_sensor < fn_uicontrol
     % See also fn_uicontrol, fn_clipcontrol
     
     % Thomas Deneux
-    % Copyright 2008-2012
+    % Copyright 2008-2017
     
     properties
         mode = 'clip'; % only available mode now
         format = '%.2g';
     end
     
-    events
-        Delete
-    end
-
     % Constructor
     methods
         function S = fn_sensor(varargin)
@@ -45,9 +41,6 @@ classdef fn_sensor < fn_uicontrol
             
             % set additional properties
             if nargin>0, set(S,varargin{:}), end
-        end
-        function delete(S)
-            notify(S,'Delete')
         end
     end
     
@@ -100,7 +93,7 @@ classdef fn_sensor < fn_uicontrol
             else
                 displayvalue(S,flag)
                 setappdata(S.hf,'previouspoint',p0)
-                fn_buttonmotion(@()move(S,val0,p0,flag))
+                fn_buttonmotion(@()move(S,val0,p0,flag),S.hf)
             end
             displayvalue(S)
         end

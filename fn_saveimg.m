@@ -5,10 +5,11 @@ function fn_saveimg(a,fname,varargin)
 % clip can be a 2-values vector, or 'fit' [default], or '?SD', or 'none'
 
 % Thomas Deneux
-% Copyright 2004-2012
+% Copyright 2004-2017
 
 if nargin<1, help fn_saveimg, return, end
 if nargin<2 || isempty(fname), fname=fn_savefile; end
+if isequal(fname,0), return, end
 
 clip = 'auto'; zoom = 1; cmap = []; delaytime = .1;
 k=0;
@@ -40,7 +41,11 @@ if nt2==3
 elseif nt==3
     nt = nt2;
     ncol = 3;
-else 
+elseif nt==1 && nt2>1
+    a = permute(a,[1 2 4 3]);
+    nt = nt2;
+    ncol = 1;
+else
     ncol = 1;
 end
 
@@ -129,7 +134,27 @@ end
 % saving
 if nt>1 && strcmp(ext,'gif')
     a = permute(a,[2 1 4 3]);
-    imwrite(a,fname,ext,'delaytime',delaytime,'loopcount',inf)
+    % better convert to uint8 now, otherwise shit happens
+    switch class(a)
+        case {'double' 'single'}
+            a = uint8(255*a);
+        case 'uint8'
+            % nothing to do
+        case 'uint16'
+            a = uint8(a/256);
+        otherwise
+            error('number type ''%s'' not handled for gif saving',class(a))
+    end
+    if zoom~=1
+        if ~zf, error 'interpolated zooming not implemented for gif saving', end
+        a = a(jj,ii,:,:);
+    end
+    if ~isempty(cmap)
+        if ischar(cmap), cmap = feval(cmap,256); end
+        imwrite(a,cmap,fname,ext,'delaytime',delaytime,'loopcount',inf)
+    else
+        imwrite(a,fname,ext,'delaytime',delaytime,'loopcount',inf)
+    end
     return
 end
 if nt>1
@@ -148,8 +173,8 @@ for i=1:nt
             fr = fr(jj,ii);
         else
             fr = interp2(jj,ii,fr,jj2,ii2,'*spline');
+            fr = min(max(fr,0),.999);
         end
-        fr = min(max(fr,0),.999);
     end
     if ~isempty(cmap)
         if ischar(cmap), cmap = feval(cmap,256); end

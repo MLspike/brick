@@ -4,10 +4,10 @@ function idx = fn_find(fun,A,varargin)
 % function idx = fn_find(x,A[,'first|last|all|any'][,'columns|rows'])
 % function idx = fn_find(A[,'first|last|all|any'][,'columns|rows'])
 %---
-% map function 'fun' to elements[default]/columns/rows of A
-% and find the first/last/all[default] elements that returned true (or, if
-% 'any' flag is employed, returns a logical indicating whether the function
-% returned true at least once)
+% Map function fun to elements[default]/columns/rows of A and find the
+% first/last/all[default] elements that returned non-empty/non-zero
+% elements (or, if 'any' flag is employed, returns a logical indicating
+% whether the function returned true at least once)
 %
 % if no function handle is passed but any matlab variable x, the function
 % fun = @(y)isequal(y,x) is used, i.e. fn_find looks for occurences of x
@@ -20,7 +20,7 @@ function idx = fn_find(fun,A,varargin)
 % See also fn_map, fn_isemptyc
 
 % Thomas Deneux
-% Copyright 2016
+% Copyright 2016-2017
 
 if nargin==0, help fn_find, return, end
 

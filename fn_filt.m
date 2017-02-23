@@ -65,6 +65,9 @@ function y = fn_filt(x,tau,varargin)
 % Output:
 % - y       filtered data
 
+% Thomas Deneux
+% Copyright 2015-2017
+
 if nargin==0, help fn_filt, return, end
 
 % Input
@@ -424,6 +427,7 @@ switch filtertype
         Wn = freqthr*2; % 1 <-> Nyquist
         switch type
             case 'l'
+                if ischar(N), N = str2double(N); end
                 [b a] = butter(N,Wn(1),'low');
                 y = filter(b,a,x,[],dim);
             case 'h'

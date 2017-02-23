@@ -7,6 +7,10 @@ classdef fn_pointer < dynamicprops & hgsetget
     % fn_pointer is actually a small wrapper for Matlab 'dynamicprops'
     % class
     
+    % Thomas Deneux
+    % Copyright 2015-2017
+
+    
     methods
         function X = fn_pointer(varargin)
             if nargin==0, return, end
@@ -42,7 +46,10 @@ classdef fn_pointer < dynamicprops & hgsetget
                     if isa(x,'fn_pointer'), error 'fn_pointer property value cannot be an fn_pointer', end
                     % add dynamic property if necessary, and that's it!
                     donewprop = isempty(findprop(X,f(1).subs));
-                    if donewprop, addprop(X,f(1).subs); end
+                    if donewprop
+                        P = addprop(X,f(1).subs); 
+                        P.SetObservable = true; % make the new property observable
+                    end
                     if length(f)>1
                         X.(f(1).subs) = subsasgn(X.(f(1).subs),f(2:end),x);
                     else

@@ -35,14 +35,13 @@ function y = fn_interleave(dim,varargin)
 %          6    16
 
 % Thomas Deneux
-% Copyright 2012-2012
+% Copyright 2012-2017
 
 if nargin==0, help fn_interleave, return, end
 
 % Input
 dopush = false;
-if ischar(varargin{end})
-    if ~strcmp(varargin{end},'push'), error 'unknown flag', end
+if ischar(varargin{end}) && strcmp(varargin{end},'push')
     dopush = true;
     varargin(end) = [];
 end

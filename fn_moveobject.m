@@ -15,7 +15,7 @@ function dp = fn_moveobject(hobj,varargin)
 % See also fn_buttonmotion, fn_pan
 
 % Thomas Deneux
-% Copyright 2007-2012
+% Copyright 2007-2017
 
 % Special: move by a fixed vector
 if nargin==2 && isnumeric(varargin{1})
@@ -70,7 +70,7 @@ switch get(get(hobj(1),'parent'),'type')
         oldunits = fn_get(hobj,'units');
         set(hobj,'units','pixels')
     case {'axes'}
-        % pointer location will be an axes referential
+        % pointer location will be in axes referential
         ref = get(hobj(1),'parent');
     otherwise
         error('cannot handle parent type ''%s''',get(get(hobj(1),'parent'),'type'))

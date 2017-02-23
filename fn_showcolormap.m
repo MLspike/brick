@@ -5,7 +5,7 @@ function ha = fn_showcolormap(varargin)
 % value
 
 % Thomas Deneux
-% Copyright 2011-2012
+% Copyright 2011-2017
 
 
 % input
@@ -46,7 +46,7 @@ if doautopos
     verticalaxes = true;
 elseif isempty(ha)
     hf = figure(873);
-    clf(hf), fn_figmenu(hf)
+    clf(hf)
     fn_setfigsize(hf,200,500);
     set(hf,'color','w','tag','color bar')
     ha = axes('pos',[.5 .2 .1 .7]);
