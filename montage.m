@@ -1,4 +1,6 @@
 classdef montage < interface
+    % function M = montage([fname]
+    % function M = montage(images[,names or struct])
     % GUI program for manual alignment of a large set of images
     
     % Thomas Deneux
@@ -13,13 +15,17 @@ classdef montage < interface
         context
         showmarks = true;
         motionfactor = 1;
+        flashtimer
+        flashphase
     end
     properties (SetObservable = true)
         showinactive = true;
+        scrollwheel = 'zoom'; % 'zoom' or 'alpha'
     end
     
+    % Init
     methods
-        function M = montage(fname)
+        function M = montage(varargin)
             hf = figure('name','montage','integerhandle','off');
             M = M@interface(hf,'Montage');
             set(hf,'resize','on')
@@ -29,8 +35,15 @@ classdef montage < interface
             init_control(M)
             init_filters(M)
             %M.loadimages(evalin('base','a'))
-            if nargin==1
-                loaddata(M,fname)
+            if nargin>=1
+                a = varargin{1};
+                if ischar(a)
+                    loaddata(M,varargin{:})
+                elseif isnumeric(a) || iscell(a) || isstruct(a)
+                    loadimages(M,varargin{:})
+                else 
+                    error argument
+                end
             else
                 load_example(M)
             end
@@ -65,6 +78,9 @@ classdef montage < interface
                 'callback',@(u,e)loaddata(M))
             uimenu(m,'label','Save as...',...
                 'callback',@(u,e)savedata(M))
+            % reset display
+            uimenu(m,'label','Reset display','separator','on', ...
+                'callback',@(u,e)show(M,'reset'))
             % undo/redo
             uimenu(m,'label','undo last change','separator','on', ...
                 'callback',@(u,e)undo(M))
@@ -75,6 +91,15 @@ classdef montage < interface
                 'callback',@(u,e)set(M,'showmarks',~M.showmarks))
             % Grid menu
             gridMenu(M)
+            % Scroll wheel menu
+            scrollMenu(M)
+        end
+        function scrollMenu(M)
+            M.menus.scroll = uimenu(M.hf,'label','Scroll Wheel');
+            m = M.menus.scroll;
+            fn_propcontrol(M,'scrollwheel', ...
+                {'menugroup' {'zoom' 'alpha'} {'Zoom' 'Transparency of selection'}}, ...
+                {'parent' m});
         end
         function init_control(M)
             s = struct( ...
@@ -82,7 +107,11 @@ classdef montage < interface
                 'bin__images',  {1  'double'}, ...
                 'alpha',    {.7     'slider 0 1'}, ...
                 'white',    {0      'slider 0 1'}, ...
-                'clip',     {'fit'  'char'});
+                'clip',     {'fit'  'char'}, ...
+                'checkerboard',     {[]     'xstepper 1 3 Inf'}, ...
+                'checkerinvert',    {false  'logical < checkerboard'}, ...
+                'flash',            {[]     'xlogslider -1 .5 [0]'}, ...
+                'flashsharp',       {.5     'slider 0 1 < flash'});
             M.X = fn_control(s,@(s)updatePar(M),M.grob.x);
         end
         function init_context(M)
@@ -96,9 +125,12 @@ classdef montage < interface
             uimenu(m,'label','select all','callback',@(u,e)selectimages(M,1:length(M.im)))
             uimenu(m,'label','move to top','separator','on','callback',@(u,e)action(M,'stacktop','context'))
             uimenu(m,'label','move to bottom','callback',@(u,e)action(M,'stackbottom','context'))
+            uimenu(m,'label','rename','separator','on','callback',@(u,e)action(M,'rename','context'))
             uimenu(m,'label','set scale','separator','on','callback',@(u,e)action(M,'setscale','context'))
             uimenu(m,'label','no rotation','callback',@(u,e)action(M,'norotation','context'))
-            uimenu(m,'label','not transparent','callback',@(u,e)action(M,'noalpha','context'))
+            %uimenu(m,'label','not transparent','callback',@(u,e)action(M,'noalpha','context'))
+            uimenu(m,'label','set as background','callback',@(u,e)action(M,'setbackground','context'))
+            uimenu(m,'label','remove background','callback',@(u,e)action(M,'removebackground','context'))
             uimenu(m,'label','group','separator','on','callback',@(u,e)action(M,'group','context'))
             uimenu(m,'label','ungroup','callback',@(u,e)action(M,'ungroup','context'))
             %uimenu(m,'label','remove from group','callback',@(u,e)action(M,'exitgroup','context'))
@@ -106,7 +138,7 @@ classdef montage < interface
             uimenu(m,'label','remove filter','callback',@(u,e)action(M,'rmfilter','context'))
             uimenu(m,'label','show','separator','on','callback',@(u,e)action(M,'show','context'))
             uimenu(m,'label','hide','callback',@(u,e)action(M,'hide','context'))
-            fn_propcontrol(M,'showinactive','menu','parent',m,'label','show hidden in list')
+            fn_propcontrol(M,'showinactive','menu','parent',m,'label','show hidden in list');
             uimenu(m,'label','discard','callback',@(u,e)action(M,'discard','context'))
         end
     end
@@ -114,6 +146,7 @@ classdef montage < interface
     % Display
     methods
         function show(M,varargin)
+            % function show(M[,idx][,flag])
             ha = M.grob.ha;
             % no image?
             if isempty(M.im)
@@ -130,7 +163,7 @@ classdef montage < interface
                 if ischar(a)
                     flag = a;
                 elseif isnumeric(a)
-                    idx = a;
+                    idx = row(a);
                 else
                     argument error
                 end
@@ -157,6 +190,7 @@ classdef montage < interface
             end
             for i=idx
                 s = M.im(i);
+                if ~s.active && ~doactive, continue, end
                 doredraw = isempty(s.h) || ~all(ishandle(s.h));
                 % compute
                 if doimage || doalpha
@@ -172,7 +206,7 @@ classdef montage < interface
                     [ni nj ncol] = size(a); %#ok<ASGLU>
                     % transparency
                     outmask = any(isnan(a),3);
-                    if ~isempty(s.transparentcolor) || any(outmask(:))
+                    if (~isempty(s.transparentcolor) || any(outmask(:))) && ~s.isbackground
                         for k=1:size(s.transparentcolor,1)
                             col = third(s.transparentcolor(k,:));
                             outmask = outmask | all(bsxfun(@eq,s.data,col),3);
@@ -180,6 +214,20 @@ classdef montage < interface
                         alpha = outmask*M.X.white + ~outmask*M.X.alpha;
                     else
                         alpha = [];
+                    end
+                    % add checkerboard transparency
+                    if ~isempty(M.X.checkerboard) && s.selected && ~s.isbackground
+                        squareside = round(min(ni,nj)/M.X.checkerboard);
+                        nsqx = ceil(ni/squareside); nsqy = ceil(nj/squareside);
+                        checker = mod(fn_add(column(1:nsqx),row(1:nsqy)),2);
+                        checker = fn_enlarge(checker,[nsqx nsqy]*squareside);
+                        checker = checker(1:ni,1:nj);
+                        if M.X.checkerinvert, checker = 1-checker; end
+                        if isempty(alpha)
+                            alpha = checker*M.X.alpha;
+                        else
+                            alpha = checker*alpha;
+                        end
                     end
                 else
                     [ni nj ncol] = size(s.data); %#ok<ASGLU>
@@ -200,6 +248,7 @@ classdef montage < interface
                 % update display
                 if doredraw
                     % image
+                    M.im(i).h = gobjects;
                     M.im(i).h(1) = surface(xx,yy,zz,a,'parent',M.grob.ha, ...
                         'EdgeColor','none','FaceColor','texturemap','CDataMapping','direct', ...
                         'buttondownfcn',@(u,e)action(M,'select&move',i), ...
@@ -221,27 +270,37 @@ classdef montage < interface
                         'uiContextMenu',M.context,'userdata',i,'tag','montage', ...
                         'horizontalalignment','center','verticalalignment','middle','interpreter','none', ...
                         'visible',fn_switch(s.active && M.showmarks));
-               else
-                   if doimage, set(M.im(i).h(1),'cdata',a), end
-                   if doalpha
-                       if ~isempty(alpha)
-                           set(M.im(i).h(1),'alphadata',alpha,'alphadatamapping','none','facealpha','texturemap')
-                       else
-                           set(M.im(i).h(1),'FaceAlpha',M.X.alpha)
-                       end
-                   end
-                   if docoord
-                       % image
-                       set(M.im(i).h(1),'xdata',xx,'ydata',yy)
-                       % handles
-                       set(M.im(i).h(2),'xdata',xyh(1,2),'ydata',xyh(2,2))
-                       set(M.im(i).h(3),'pos',[xyh(1,1) xyh(2,1)])
-                   end
-                   if dorenum, set(M.im(i).h(1),'userdata',i), end
-                   if doactive
-                       set(M.im(i).h(1),'visible',fn_switch(s.active))
-                       set(M.im(i).h(2:end),'visible',fn_switch(s.active && M.showmarks))
-                   end
+                    if s.isbackground
+                        set(M.im(i).h,'HitTest','off')
+                        uistack(fliplr(M.im(i).h),'bottom')
+                    end
+                else
+                    if doimage, set(M.im(i).h(1),'cdata',a), end
+                    if doalpha
+                        if ~isempty(alpha)
+                            set(M.im(i).h(1),'alphadata',alpha,'alphadatamapping','none','facealpha','texturemap')
+                        elseif s.isbackground
+                            set(M.im(i).h(1),'FaceAlpha',1)
+                        else
+                            set(M.im(i).h(1),'FaceAlpha',M.X.alpha)
+                        end
+                    end
+                    if docoord
+                        % image
+                        set(M.im(i).h(1),'xdata',xx,'ydata',yy)
+                        % handles
+                        set(M.im(i).h(2),'xdata',xyh(1,2),'ydata',xyh(2,2))
+                        set(M.im(i).h(3),'pos',[xyh(1,1) xyh(2,1)])
+                    end
+                    if dorenum, set(M.im(i).h(1),'userdata',i), end
+                    if doactive
+                        set(M.im(i).h(1),'visible',fn_switch(s.active))
+                        set(M.im(i).h(2:end),'visible',fn_switch(s.active && M.showmarks))
+                    end
+                    set(M.im(i).h,'hittest',fn_switch(~s.isbackground))
+                    if s.isbackground
+                        uistack(fliplr(M.im(i).h),'bottom')
+                    end
                 end
             end
             % general actions (most of them occur only on reset)
@@ -279,20 +338,24 @@ classdef montage < interface
             end
         end 
         function stackImages(M,i,flag)
-            hh = [M.im.h];              % all images and handles
-            cc = get(M.grob.ha,'children');  % all children
-            sep = find(cc==hh(1));      % separate between children appearing before and after one random image
-            c1 = setdiff(cc(1:sep),hh,'stable');     % other children appearing before
-            c2 = setdiff(cc(sep:end),hh,'stable');   % other children appearing after
-            hi = intersect(cc,[M.im(i).h],'stable');
-            hj = intersect(cc,[M.im(setdiff(1:end,i)).h],'stable');
+            % Change order of images, while preserving order of other
+            % elements (e.g. grid, background image)
+            i([M.im(i).isbackground]) = [];         % make sure background image is not included
+            hi = row(fliplr(cat(1,M.im(i).h)));     % images and handles to be moved
+            cc = row(get(M.grob.ha,'children'));    % all children
+            hh = [M.im(~[M.im.isbackground]).h];    % all images and handles, excluding background image
+            hj = setdiff(hh,hi);                    % images and handles other than those to be moved
+            hj = intersect(cc,hj,'stable');         % preserve the order in cc
             switch flag
                 case 'top'
-                    hh = [hi; hj];
+                    hh = [hi hj];
                 case 'bottom'
-                    hh = [hj; hi];
+                    hh = [hj hi];
             end
-            set(M.grob.ha,'children',[c1; hh; c2])
+            sep = find(cc==hh(1));                  % separate between children appearing before and after one random image
+            c1 = setdiff(cc(1:sep),hh,'stable');    % other children appearing before
+            c2 = setdiff(cc(sep:end),hh,'stable');  % other children appearing after
+            set(M.grob.ha,'children',[c1 hh c2])
         end
         function showList(M)
             allnames = {M.im.name};
@@ -333,12 +396,23 @@ classdef montage < interface
             set(M.hf,'pointer',curpointer)
         end
         function scrollaxis(M,n)
-            n=n/4*M.motionfactor;
-            ha = M.grob.ha;
-            p = get(ha,'currentpoint'); p = p(1,[1 1 2 2]);
-            ax = axis(ha);
-            ax = p + (ax-p)*(1.2^n);
-            axis(ha,ax)
+            switch M.scrollwheel
+                case 'zoom'
+                    n=n/4*M.motionfactor;
+                    ha = M.grob.ha;
+                    p = get(ha,'currentpoint'); p = p(1,[1 1 2 2]);
+                    ax = axis(ha);
+                    ax = p + (ax-p)*(1.2^n);
+                    axis(ha,ax)
+                case 'alpha'
+                    idx = find([M.im.selected]);
+                    if isempty(idx), return, end
+                    hh = M.im(idx).h; h = hh(:,1);
+                    alpha = get(h(1),'FaceAlpha'); 
+                    if ~isscalar(alpha), alpha = M.X.alpha; end
+                    alpha = fn_coerce(alpha-n/10,0,1);
+                    set(h,'FaceAlpha',alpha)
+            end
         end
         function idx = getSelection(M)
             idx = get(M.grob.list,'value');
@@ -353,6 +427,10 @@ classdef montage < interface
             idxlist(idx) = true;
             if ~M.showinactive, idxlist(~[M.im.active]) = []; end
             set(M.grob.list,'value',find(idxlist))
+            % mark images as selected
+            oldidx = find([M.im.selected]);
+            [M.im(oldidx).selected] = deal(false);
+            [M.im(idx).selected] = deal(true);
             % update colors in display
             if M.showmarks
                 h = cat(1,M.im.h);
@@ -360,18 +438,23 @@ classdef montage < interface
                 h = cat(1,M.im(idx).h);
                 if ~isempty(h), set(h(:,2:3),'color','r'), end
             end
+            % update previously and newly selected images (in case
+            % something special occurs with selected one such as
+            % checkerboard, alpha scrolling...)
+            M.show(union(oldidx,idx),'image')
         end
         function set.showmarks(M,x)
             M.showmarks = x;
             M.show('active')
         end
         function updatePar(M)
-            if ismember('bin',M.X.changedfields)
-                M.show()
-            elseif ismember('clip',M.X.changedfields)
+            if any(ismember({'checkerboard' 'checkerinvert' 'clip' 'bin__images'},M.X.changedfields))
                 M.show('image')
-            else
+            elseif any(ismember({'alpha' 'white'},M.X.changedfields))
                 M.show('alpha')
+            end
+            if ismember('flash',M.X.changedfields)
+                M.flashimages()
             end
         end
         % changing content
@@ -395,20 +478,60 @@ classdef montage < interface
                 end
                 return
             end
+            % extend to group?
+            i = find([M.im.selected]);
+            if isempty(i), return, end
+            group = unique({M.im(i).group});
+            if ~isscalar(group)
+                waitfor(errordlg('all images should belong to the same group when moving'))
+                return
+            end
+            dogroup = ~strcmp(group,'') && ~ismember(flag,{'exitgroup'});
+            iorig = i(1);
+            if dogroup
+                i = find(strcmp({M.im.group},group));
+            end
             % action
-            i = getSelection(M);
             if ~any([M.im(i).active]), return, end
             ax = axis(M.grob.ha);
-            step = mean(diff(ax([1 3; 2 4]))/400)*M.motionfactor;
+            tstep = 1/1000 * mean(diff(ax([1 3; 2 4]))) * M.motionfactor;
+            rstep = 1/10 * pi/180 * M.motionfactor;
+            zstep = 1.001 ^ M.motionfactor;
+            sorig = M.im(iorig); s = M.im(i);
             switch(e.Key)
                 case 'leftarrow'
-                    [M.im(i).xc] = dealc([M.im(i).xc]-step);
+                    [M.im(i).xc] = dealc([M.im(i).xc]-tstep);
                 case 'rightarrow'
-                    [M.im(i).xc] = dealc([M.im(i).xc]+step);
+                    [M.im(i).xc] = dealc([M.im(i).xc]+tstep);
                 case 'uparrow'
-                    [M.im(i).yc] = dealc([M.im(i).yc]-step);
+                    [M.im(i).yc] = dealc([M.im(i).yc]-tstep);
                 case 'downarrow'
-                    [M.im(i).yc] = dealc([M.im(i).yc]+step);
+                    [M.im(i).yc] = dealc([M.im(i).yc]+tstep);
+                case {'multiply' 'divide'}
+                    drot = fn_switch(e.Key,'multiply',rstep,'divide',-rstep);
+                    [xcorig ycorig] = deal(sorig.xc,sorig.yc);
+                    [xc0 yc0] = deal([s.xc],[s.yc]);
+                    u0 = [xc0-xcorig; yc0-ycorig];
+                    R = [cos(drot) -sin(drot); sin(drot) cos(drot)];
+                    u = R*u0;
+                    for ki=1:length(i)
+                        ik = i(ki);
+                        M.im(ik).xc = xcorig + u(1,ki);
+                        M.im(ik).yc = ycorig + u(2,ki);
+                        M.im(ik).rot = s(ki).rot + drot;
+                    end
+                case {'add' 'subtract'}
+                    scalefact = fn_switch(e.Key,'add',zstep,'subtract',1/zstep);
+                    [xcorig ycorig] = deal(sorig.xc,sorig.yc);
+                    [xc0 yc0] = deal([s.xc],[s.yc]);
+                    u0 = [xc0-xcorig; yc0-ycorig];
+                    u = scalefact*u0;
+                    for ki=1:length(i)
+                        ik = i(ki);
+                        M.im(ik).xc = xcorig + u(1,ki);
+                        M.im(ik).yc = ycorig + u(2,ki);
+                        M.im(ik).scale = s(ki).scale * scalefact;
+                    end
                 case 'pagedown'
                     M.stackImages(i,'bottom')
                     return
@@ -440,17 +563,23 @@ classdef montage < interface
                         return
                     case 'normal'
                         if strcmp(flag,'axes')
-                            M.selectimages([])
+                            idx = find([M.im.selected]);
+                            if ~isempty(idx)
+                                M.selectimages([])
+                                M.show(idx,'image')
+                            end
                             return
                         end
                 end
                 iorig = i; % remember which image was originally selected
+            else
+                iorig = [];
             end
             % which image(s)
             % (no image)
             if isempty(i), disp 'no image selected', return, end
             % (selection in list)
-            idxsel = getSelection(M);
+            idxsel = M.getSelection();
             if strcmp(i,'context')
                 i = idxsel;
                 if isempty(i), return, end
@@ -458,15 +587,14 @@ classdef montage < interface
                 i = idxsel;                
             end
             % (extend to group?)
+            selectimages(M,i)
             if ismember(flag,{'ungroup' 'select&move' 'select&rotate' 'norotation' 'setscale'})
                 group = unique({M.im(i).group});
                 if strcmp(flag,'norotation') && (~isscalar(group) || (~strcmp(group,'') && ~isscalar(i)))
                     waitfor(errordlg('when applying ''norotation'', either all images should belong to no group, or a only one image should be selected'))
-                    set(M.grob.list,'value',[])
                     return
                 elseif ~isscalar(group)
                     waitfor(errordlg('selected images must all be part of no group, or of the same group'))
-                    set(M.grob.list,'value',[])
                     return
                 end
                 dogroup = ~strcmp(group,'') && ~ismember(flag,{'exitgroup'});
@@ -475,13 +603,12 @@ classdef montage < interface
                     i = find(strcmp({M.im.group},group));
                 end
             end
-            selectimages(M,i)
             % perform action
             % (remember current state and prepare flag for whether to store
             % it)
             % (common to several actions: stack to top)
             if ismember(flag,{'show' 'listselect' 'stacktop' 'select&move' 'select&rotate'})
-                M.stackImages(i,'top')
+                M.stackImages([iorig setdiff(i,iorig)],'top')
             end
             % (list select + double-click -> toggle visibility)
             if strcmp(flag,'listselect') && isscalar(i) && strcmp(get(M.hf,'selectionType'),'open')
@@ -514,6 +641,11 @@ classdef montage < interface
                         M.selectimages(iorig)
                     end
                     set(M.hf,'pointer',curpointer)
+                case 'rename'                    
+                    answer = inputdlg(repmat({'name:'},1,length(i)),'Rename images',1,{M.im(i).name});
+                    if isempty(answer), return, end
+                    [M.im(i).name] = deal(answer{:});
+                    showList(M)
                 case 'norotation'
                     if dogroup
                         s = M.im(i);
@@ -552,6 +684,17 @@ classdef montage < interface
                             set(s.h(1),'alphadata',alpha,'alphadatamapping','none','facealpha','texturemap')
                         end
                     end
+                case 'setbackground'
+                    if ~isscalar(i)
+                        errordlg 'only one image can be set as background'
+                        return
+                    end
+                    [M.im.isbackground] = deal(false);
+                    M.im(i).isbackground = true;
+                    M.show()
+                case 'removebackground'
+                    [M.im.isbackground] = deal(false);
+                    M.show()
                 case 'group'
                     % group images
                     % (suggest a group name)
@@ -594,6 +737,7 @@ classdef montage < interface
                     kfilt = 1; while ismember(kfilt,num), kfilt = kfilt+1; end
                     defaultname = ['FILTER ' num2str(kfilt)];
                     answer = inputdlg('Filter name:','montage',1,{defaultname});
+                    if isempty(answer), return, end
                     % (assign group)
                     [M.im(i).filter] = deal(answer{1});
                     % (update filters display)
@@ -765,7 +909,7 @@ classdef montage < interface
                     hl = fn_lines(xx,yy,ha,'color',[1 1 1]*.6,'tag','dispatch_lines','hittest','off');
                     set([hl{1}(1:xdiv/2:end) hl{2}(1:ydiv/2:end)],'color','k')
                     % update display of images
-                    M.show('chgratio')
+                    M.show('reset')
                 case 'off'
                     % un-dispatch
                     for i=1:length(M.im)
@@ -776,9 +920,47 @@ classdef montage < interface
                             M.im(i).dispatch = [];
                         end
                     end
+                    % remove grid
+                    delete(findall(ha,'tag','dispatch_lines'))
+                    % update display
                     M.show('reset')
             end
             M.storeCurrent()
+        end
+    end
+    
+    % Flash images
+    methods
+        function flashimages(M)
+            % Init timer
+            if isempty(M.flashtimer)
+                M.flashtimer = timer('TimerFcn',@(u,e)flashupdate(M),'ExecutionMode','FixedSpacing');
+                M.flashphase = 0;
+            end
+            % Stop timer
+            stop(M.flashtimer)
+            if isempty(M.X.flash)
+                M.show(find([M.im.selected])) %#ok<FNDSB>
+                return
+            end
+            % Timer period
+            set(M.flashtimer,'Period',.05)
+            % Start timer
+            start(M.flashtimer)
+        end
+        function flashupdate(M)
+            % phase
+            nphase = 20;
+            M.flashphase = mod(M.flashphase+1*M.X.flash/nphase,1);
+            % alpha
+            alpha = cos(2*pi*M.flashphase);
+            sharp = 1 / (1-M.X.flashsharp); % between 1 and +Inf
+            alpha = (2/pi)*atan(tan((pi/2)*alpha)*sharp);
+            if isnan(alpha), alpha = 0; end
+            alpha = (1+alpha)/2;
+            % update image(s) transparency
+            hh = cat(1,M.im([M.im.selected]).h); h = hh(:,1);
+            set(h,'FaceAlpha',alpha)
         end
     end
     
@@ -847,18 +1029,23 @@ classdef montage < interface
             % loadimage(M,a[,names|structure])
             % loadimage(M,'file')
             % loadimage(M,'matlab')
-            name = []; doconfirmnames = true; sim = [];
+            name = []; doconfirmnames = true; sim = []; domergestruct = false;
             if isnumeric(varargin{1}) || iscell(varargin{1})
                 a = varargin{1};
                 if ~iscell(a), a = {a}; end
+                for i=1:length(a)
+                    if ischar(a{i}), a{i}=fn_readimg(a{i}); end
+                end
                 if nargin>=3
                     if nargin>3, b = struct(varargin{2:end}); else b = varargin{2}; end
                     if isstruct(b)
                         sim = b;
                         if isfield(sim,'name'), name = {sim.name}; doconfirmnames = false; end
+                        domergestruct = true;
                     else
                         name = varargin{2};
-                        if ~iscell(name), name = {name}; doconfirmnames = false; end
+                        if ~iscell(name), name = {name}; end
+                        doconfirmnames = false; 
                     end
                 end
             else
@@ -874,7 +1061,11 @@ classdef montage < interface
                     case 'matlab'
                         str = inputdlg('Enter cell array, or individual images separated by commas','Add images');
                         a = evalin('base',['{' str{1} '}']);
-                        if isscalar(a) && iscell(a{1}), a = a{1}; end
+                        if isscalar(a) && (iscell(a{1}) || isstruct(a{1})), a = a{1}; end
+                        if isstruct(a)
+                            name = fieldnames(a);
+                            a = struct2cell(a);
+                        end
                 end
             end
             nim = length(a);
@@ -887,6 +1078,9 @@ classdef montage < interface
             for i=1:nim
                 simi = struct('name',name{i},'data',a{i},'xc',0,'yc',0,'scale',1,'rot',0);
                 if ~isempty(sim), simi = fn_structmerge(simi,sim(i)); end
+                if domergestruct
+                    simi = fn_structmerge(simi,b(i));
+                end
                 M.im(nprev+i) = fn_structmerge(model,simi);
             end
             % update display
@@ -904,11 +1098,15 @@ classdef montage < interface
             storeCurrent(M)
         end
         function savedata(M,fname)
-            if nargin<2, fname = fn_savefile('*.mat'); end
+            if nargin<2
+                fname = fn_savefile('*.mat'); 
+                if isequal(fname,0), return, end
+            end
             fname = fn_fileparts(fname,'noext');
             if isempty(regexp(fname,'_montage$', 'once')), fname = [fname '_montage']; end
             fname = [fname '.mat'];
             s = M.im;
+            s = rmfield(s,'h');
             % cancel possible dispatch
             for i=1:length(s)
                 if ~isempty(s(i).dispatch)
@@ -918,6 +1116,7 @@ classdef montage < interface
                 end
             end
             % save
+            c=fn_watch(M.hf);  %#ok<NASGU>
             fn_savevar(fname,s)
         end
         function loaddata(M,fname)
@@ -960,7 +1159,7 @@ classdef montage < interface
                 case 'align'
                     a = cell(1,n);
                 case 'montage'
-                    a = zeros(nx,ny);
+                    a = zeros(nx,ny,size(img(1).data,3));
                 otherwise
                     error('unknown flag ''%s''',flag)
             end
@@ -1011,16 +1210,18 @@ classdef montage < interface
                 end
             end
             if strcmp(flag,'montage')
-                a = a./contrib;
+                a = fn_div(a,contrib);
                 a(isnan(a)) = 0;
             end
         end
     end
     methods
         function [a dx] = getAlignedImages(M,varargin)
+            % function [a dx] = getAlignedImages(M,dx)
             [a dx] = getOutput(M,'align',varargin{:});
         end
         function [a dx] = getBigImage(M,varargin)
+            % function [a dx] = getBigImage(M,dx)
             [a dx] = getOutput(M,'montage',varargin{:});
         end
     end
@@ -1028,8 +1229,12 @@ end
 
 function im = immodel(emptyflag)
 
-im=struct('name',[],'data',[],'xc',[],'yc',[],'scale',[],'rot',[],'h',[], ...
-    'active',true,'transparentcolor',[],'group','','filter','','dispatch',[]);
+im=struct('name',[], ...
+    'data',[],'transparentcolor',[], ...
+    'xc',[],'yc',[],'scale',[],'rot',[], ...
+    'h',[],'dispatch',[], ...
+    'active',true,'selected',false,'isbackground',false, ...
+    'group','','filter','');
 if nargin>=1 && strcmp(emptyflag,'empty'), im(1)=[]; end
 
 end
