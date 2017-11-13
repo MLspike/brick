@@ -173,10 +173,10 @@ set(hObject,'DefaultLineCreateFcn','')
 % s'il y a d�j� un callback ou un Tag dans cet axes provenant d'une autre application, 
 % ou si on est dans un display 3D, ne rien faire
 if ~strcmp(get(hObject,'Tag'),'fn_imvalue') % le plus probable ; plus rapide de d'abord tester ��
-    if ~isempty(get(hObject,'Tag')) || length(axis(hObject))==6 
+    if length(axis(hObject))==6 
         return
     end 
-    hc = hObject; %[get(hObject,'parent') ; hObject]'; % ; get(hObject,'children')]';
+    hc = [get(hObject,'parent') ; hObject]'; % ; get(hObject,'children')]';
     for h = hc
         if ~isempty(get(h,'ButtonDownFcn')) || ~isempty(get(h,'Tag'))
             return
@@ -321,7 +321,7 @@ function ret = linkedAxes(refaxis,isimg,onlyone)
 if nargin<3, onlyone = false; end
 ret = [];
 if isimg, interest = 1:4; else interest = 1:2; end
-for ha = findall(0,'type','axes')'
+for ha = findallaxes
     info1 = getappdata(ha,'fn_imvalue');
     if isempty(info1), continue, end
     oldaxis = info1.OldAxis;
@@ -333,6 +333,30 @@ for ha = findall(0,'type','axes')'
         end  
     end
 end
+
+
+%-----------
+function ha = findallaxes(hp)
+
+if nargin==0
+    ha = [];
+    panels = row(allchild(0)); % figures
+else
+    c = row(allchild(hp));
+    ctype = get(c,'type');
+    ha = c(strcmp(ctype,'axes'));
+    panels = c(strcmp(ctype,'uipanel'));
+end
+npanel = length(panels);
+if npanel
+    ha2 = cell(1,npanel);
+    for i=1:npanel
+        ha2{i} = findallaxes(panels(i));
+    end
+    ha = [ha ha2{:}];
+end
+
+
 
 
 %-----------
