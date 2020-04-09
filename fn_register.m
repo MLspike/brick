@@ -1,4 +1,6 @@
 function varargout = fn_register(varargin)
+%FN_REGISTER Coregister images or movie
+%---
 % function [shift e xreg] = fn_register(x,par|ref)
 % function par = fn_register('par')
 %---
@@ -8,7 +10,7 @@ function varargout = fn_register(varargin)
 % frames.
 % x can be a color image or movie: color should then be the 4th dimension
 %
-% See also fn_translate, fn_xregister
+% See also fn_translate, fn_xregister, fn_alignimage
 
 % Thomas Deneux
 % Copyright 2011-2017
@@ -75,7 +77,12 @@ end
 function [shift e xreg] = register(x,par)
 
 % Size
-if any(isnan(x(:))), error 'cannot register images with NaN values', end
+if any(isnan(x(:)))
+    name = fullfile(tempdir,['NaNs problem ' datestr(now,'dd-mmm-yyyy HH-MM-SS') '.mat']);
+    disp(['detected NaN values in image, is it corrupted?, saving it in ' name])
+    save(name,'x')
+    error 'cannot register images with NaN values'
+end
 [ni nj nt ncol] = size(x);
 if nt==3 && ncol==1 && size(par.ref,4)==3
     x = reshape(x,[ni nj 1 3]);
@@ -87,9 +94,9 @@ end
 % Reference frame
 if isscalar(par.ref)
     if par.ref==0
-        ref = mean(x,3);
+        ref = double(mean(x,3));
     else
-        ref = mean(x(:,:,1:min(par.ref,nt),:),3);
+        ref = double(mean(x(:,:,1:min(par.ref,nt),:),3));
     end
 else
     ref = double(par.ref);
@@ -148,7 +155,7 @@ if fn_ismemberstr(par.display,{'iter' 'final'})
 end
 
 % Register
-opt = optimset('Algorithm','active-set','GradObj',fn_switch(par.dogradobj), ...
+opt = optimset('Algorithm','active-set','GradObj',onoff(par.dogradobj), ...
     'tolx',par.tolx,'tolfun',par.tolfun,'maxfunevals',1000, ...
     'display',fn_switch(par.display,'framenumber','none',par.display));
 Q = column(par.FACT);

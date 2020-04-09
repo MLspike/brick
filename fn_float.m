@@ -1,4 +1,6 @@
 function x = fn_float(x)
+%FN_FLOAT Convert integer to single, keep single or double as such 
+%---
 % function x = fn_float(x)
 %---
 % convert integer x to single-precision floating number, but do not change
@@ -14,7 +16,7 @@ if ~(isnumeric(x) || islogical(x))
     error 'input must be integer'
 end
 switch class(x)
-    case {'single' 'double'}
+    case {'single' 'double' 'ndSparse'}
     case {'int64' 'uint64'}
         x = double(x);
     otherwise

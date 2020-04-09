@@ -1,4 +1,6 @@
 classdef fn_control < hgsetget
+    %FN_CONTROL    Arrangement of control that reflect the state of a set of parameters 
+    %---
     % function X = fn_control(s[,fun][,spec][,hparent] ...
     %   [,'okbutton|nobutton'][,'ncol',n][,'title',titl])
     % function fn_control('demo')
@@ -51,6 +53,8 @@ classdef fn_control < hgsetget
     % 'slider min max [step] [format]'
     %               slider, specify min, max, step (optional) and format of the
     %               string representation (optional)
+    %               check whether slider is being moved with the
+    %               'sliderscrolling' property
     % 'logslider min max [step] [format]'
     %               logarithmic scale slider (min and max should be the log of
     %               the effective min and max)
@@ -89,10 +93,11 @@ classdef fn_control < hgsetget
     %               in this case callback fun will be called with action
     %               string as an argument (instead of structure s)
     %
-    % Specification can be followed with a sequence '< name', indicating
-    % that the control of interest should be enabled only if a preceding
-    % control with name 'name' has value true (logical control) or
-    % non-empty value (other controls).
+    % Specification can be followed with a sequence '< name', indicating a
+    % dependency, i.e. that the control of interest should be enabled only
+    % if a preceding control with name 'name' has value true (logical
+    % control) or non-empty value (other controls). Use ~name if value need
+    % to be false instead.
     % 
     % One might want to display small sentences rather than simple names
     % when prompting user. For this, the following syntaxes are allowed:
@@ -126,9 +131,13 @@ classdef fn_control < hgsetget
         fignew
         changedfields
     end
+    properties (Access='private')
+        last_active
+    end
     
     properties (Dependent)
         s
+        sliderscrolling
     end
     
     events
@@ -244,7 +253,7 @@ classdef fn_control < hgsetget
                 'check',{},'log',{},'min',{},'max',{},'step',{},'shift',{},'format',{}, ...
                 'mode',{},'values',{} ...
                 );
-            X.dependencies = false(nf);
+            X.dependencies = zeros(nf);
             
             %-
             % SET PARAMETERS  
@@ -399,12 +408,16 @@ classdef fn_control < hgsetget
                     
                     % dependencie
                     if ~isempty(dep)
-                        name = fn_regexptokens(dep,'< *([^ ]*)');
+                        name = fn_regexptokens(dep,'< *([^ ]*)');                       
+                        dep_neg = (name(1)=='~');
+                        if dep_neg
+                            name(1) = [];
+                        end
                         kdep = find(strcmp(name,X.names(1:k-1)));
                         if isempty(kdep)
                             error 'error in establishing dependency'
                         end
-                        X.dependencies(kdep,k) = true;
+                        X.dependencies(kdep,k) = (-1)^dep_neg;
                     end
                 end
                 
@@ -484,13 +497,8 @@ classdef fn_control < hgsetget
                         % note that in this case, xk.startval has not been
                         % defined yet
                         if ~strcmp(xk.style,'pushbutton')
-                            if ischar(xk.value)
-                                xk.startval = find(strcmp(xk.value,opt));
-                                if isempty(xk.startval), xk.startval = 1; end
-                            else
-                                if ~isequal(xk.value,[]), error 'value must be a string or []', end
-                                xk.startval = 1;
-                            end
+                            xk.startval = fn_find(xk.value,opt,'first');
+                            if isempty(xk.startval), xk.startval = 1; end
                             xk.value = opt{xk.startval};
                         end
                         xk.values = opt;
@@ -603,7 +611,7 @@ classdef fn_control < hgsetget
                         xk.n_val = 6;
                     case 'stepper'
                         % read options
-                        defans = {'stepper' '1' '-Inf' 'Inf' '1' '%.2g'};
+                        defans = {'stepper' '1' '-Inf' 'Inf' '1' ''};
                         answer = regexp(opt,'([^ ]*)','tokens');
                         answer = [answer{:}];
                         missing = (length(answer)+1:length(defans));
@@ -800,7 +808,7 @@ classdef fn_control < hgsetget
                 end
             end
             delete(get(X.hp,'children'))
-            fn_deletefcn(X.hp,@(hp,evnt)delete(X))
+            addlistener(X.hp,'ObjectBeingDestroyed',@(hp,evnt)delete(X));
             set(X.hp,'tag','fn_control') % prevent access to fn_imvalue
             
             % Updated sizes
@@ -866,7 +874,7 @@ classdef fn_control < hgsetget
                     end
                     if xk.check
                         set(xk.hname,'style','checkbox','value',xk.defaultcheck);
-                        set(xk.hname,'callback',@(hu,evnt)chgvalue(X,k,logical(get(hu,'value'))));
+                        set(xk.hname,'callback',@(hu,evnt)chgvalue(X,k,boolean(get(hu,'value'))));
                     end
                     if strcmp(xk.style,'slider') && (~xk.check || xk.defaultcheck)
                         set(xk.hname,'string',[xk.nicename ' (' num2str(xk.value,xk.format), ')'])
@@ -909,10 +917,7 @@ classdef fn_control < hgsetget
                                 'value',xk.startval,'callback', ...
                                 @(hu,evnt)chgvalue(X,k));
                             if xk.step
-                                % note that 'inc' and 'width are relative values (betw.
-                                % 0 and 1, not betw. min and max)
-                                inc = xk.step/(xk.max-xk.min);
-                                set(xk.hval,'inc',inc,'width',inc)
+                                set(xk.hval,'step',xk.step)
                             end
                         case 'stepper'
                             xk.hval = fn_stepper('parent',X.hp, ...
@@ -1022,6 +1027,15 @@ classdef fn_control < hgsetget
             for k=1:sum(okval), if iscell(c{2,k}), c{2,k} = {c{2,k}}; end, end %#ok<CCAT1>
             s = struct(c{:});
         end
+        function b = get.sliderscrolling(X)
+            k = X.last_active;
+            if isempty(k)
+                b = false;
+                return
+            end
+            xk = X.controls(k);
+            b = strcmp(xk.style,'slider') && xk.hval.sliderscrolling;
+        end
         function set.immediateupdate(X,value)
             set(X.himupd,'value',value) %#ok<*MCSUP>
             X.immediateupdate = value;
@@ -1078,7 +1092,7 @@ classdef fn_control < hgsetget
                         updatecontrol(X,k)
                     else
                         if length(f)>1
-                            X.(f(1).subs) = subsassgn(X.(f(1).subs),f(2:end),x);
+                            X.(f(1).subs) = subsasgn(X.(f(1).subs),f(2:end),x);
                         else
                             X.(f(1).subs) = x;
                         end
@@ -1100,6 +1114,7 @@ classdef fn_control < hgsetget
         end
         function chgvalue(X,k,bval)
             % callback function executed when control k has been changed
+            X.last_active = k;
             xk = X.controls(k);
             
             % get the value if we checked the box / check the box if we
@@ -1321,22 +1336,23 @@ classdef fn_control < hgsetget
             end
             xkdep = X.controls(kdep);
             if strcmp(xkdep.type,'logical')
-                enable = xkdep.value;
+                dep_value = xkdep.value;
             else
-                enable = ~isempty(xkdep.value);
+                dep_value = ~isempty(xkdep.value);
             end
             for k = row(kk)
                 xk = X.controls(k);
                 % Enable name
-                set(xk.hname,'enable',fn_switch(enable))
+                enable = xor(dep_value, X.dependencies(kdep,k)==-1);
+                set(xk.hname,'enable',onoff(enable))
                 % Enable control
                 switch xk.style
                     case {'popupmenu' 'radiobutton' 'togglebutton' 'edit' 'text'}
-                        set(xk.hval,'enable',fn_switch(enable))
+                        set(xk.hval,'enable',onoff(enable))
                     case 'multcheck'
                     case 'multlist'
                     case 'slider'
-                        xk.hval.enabled = enable;
+                        xk.hval.Enabled = enable;
                     case 'stepper'
                     case 'sensor'
                     case 'color'

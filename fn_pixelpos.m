@@ -6,41 +6,35 @@ function pos = fn_pixelpos(hobj,varargin)
 %
 % In R2014b and later, wraps function getpixelposition
 %
-% See also fn_pixelsize 
+% Input:
+% - hobj            most graphic objects
+% - 'recursive'     return position relative to parent figure rather than
+%                   to immediate parent
+% - 'strict'        take into account that when DataAspectRatio is
+%                   fixed, only a subset of the axes space is used
+%
+% See also fn_pixelsize, getpixelposition
 
 % Thomas Deneux
 % Copyright 2011-2017
 
 if nargin==0, help fn_pixelpos, return, end
-[recursive strict] = fn_flags({'recursive' 'strict'},varargin);
+[recursive, strict] = fn_flags({'recursive' 'strict'},varargin);
  
 % get pixel position
-    
-if fn_matlabversion('newgraphics')
-    if strcmp(get(hobj,'type'),'text')
-        % special: get(hobj,'pos') returns a 3-element vector, and
-        % getpixelposition(hobj) would return [0 0 0 0]
-        curunit = get(hobj,'unit');
-        set(hobj,'unit','pixel')
-        pos = get(hobj,'pos'); pos(3:4) = 0;
-        set(hobj,'unit',curunit)
-        if recursive
-            ppos = fn_pixelpos(get(hobj,'parent'),'recursive','strict');
-            pos(1:2) = (ppos(1:2)-1) + pos(1:2);
-        end
-    else
-        pos = getpixelposition(hobj,recursive);
+if strcmp(get(hobj,'type'),'text')
+    % special: get(hobj,'pos') returns a 3-element vector, and
+    % getpixelposition(hobj) would return [0 0 0 0]
+    curunit = get(hobj,'unit');
+    set(hobj,'unit','pixel')
+    pos = get(hobj,'pos'); pos(3:4) = 0;
+    set(hobj,'unit',curunit)
+    if recursive
+        ppos = fn_pixelpos(get(hobj,'parent'),'recursive','strict');
+        pos(1:2) = (ppos(1:2)-1) + pos(1:2);
     end
 else
-    W = pixelposwatcher(hobj);
-    pos = W.pixelpos;
-    if recursive 
-        hp = get(hobj,'parent');
-        if ~strcmp(get(hp,'type'),'figure')
-            ppos = fn_pixelpos(hp,'recursive','strict');
-            pos(1:2) = (ppos(1:2)-1) + pos(1:2);
-        end
-    end
+    pos = getpixelposition(hobj,recursive);
 end
 
 % 'strict' flag: take into account the fact that when DataAspectRatio is

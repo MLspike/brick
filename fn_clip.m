@@ -1,4 +1,6 @@
 function [x clip] = fn_clip(x,varargin)
+%FN_CLIP Rescale data, restrict the range, color
+%---
 % function [x clip] = fn_clip(x[,clipflag][,outflag][,nanvalue])
 %---
 % Rescale and restrict to a specific range ("clip") the data in an array.
@@ -18,7 +20,9 @@ function [x clip] = fn_clip(x,varargin)
 % - outflag     output format
 %               [a b]       define minimum and maximum value [default, with
 %                           a=0 and b=1]
-%               n           integer values between 1 and n
+%               n           integer values between 1 and n (output will be
+%                           of class uint8 if n<=256, uint16 if n<=65536,
+%                           etc.
 %               'uint8', 'uint16', ..   integer values between 0 and max
 %               nx3 array   returns a (n+1)-dimensional array using this
 %                           colormap 
@@ -42,7 +46,6 @@ function [x clip] = fn_clip(x,varargin)
 if nargin==0, help fn_clip, return, end
 
 % Input
-x = fn_float(x);
 clipflag = []; outflag = []; nanvalue = [];
 for k=1:length(varargin)
     a = varargin{k};
@@ -94,6 +97,7 @@ else
             clip = centerval + [-1 1]*max(abs(x(:)-centerval));
         end
     elseif ~isempty(xstd)
+        x = fn_float(x);
         if isempty(xstd), xstd=1; else xstd=str2double(xstd); end
         if isempty(centerval), m = mean(x(~isnan(x) & ~isinf(x))); else m = centerval; end
         st = std(x(~isnan(x) & ~isinf(x)));
@@ -119,7 +123,7 @@ end
 if diff(clip)==0, clip = clip+[-1 1]; end
 
 % output mode
-doclip = true; nbit = [];
+doclip = true;
 if strcmp(outflag,'getrange')
     x = clip;
     return
@@ -127,8 +131,7 @@ elseif strcmp(outflag,'scaleonly')
     doclip = false;
 elseif ischar(outflag) && any(strfind(outflag,'uint'))
     docolor = false;
-    nbit = sscanf(outflag,'uint%i');
-    n = 2^nbit;
+    n = intmax(outflag);
 elseif ischar(outflag)
     docolor = true;
     fname = outflag;
@@ -156,7 +159,7 @@ else
 end
 
 % clip
-x = (x-clip(1))/diff(clip);
+x = (fn_float(x)-clip(1))/diff(clip);
 if ~doclip, return, end
 if ~isempty(nanvalue)
     xnan = isnan(x);
@@ -170,10 +173,10 @@ x = min(upperbound,max(0,x));
 
 % scaling
 if n
-    if isempty(nbit)
-        x = floor(n*x)+1; % values between 1 and n
+    if isinteger(n)
+        x = cast(floor(double(n)*x),'like',n); % values between 0 and n-1
     else
-        x = cast(n*x,outflag); % values between 0 and 2^nbit-1
+        x = floor(n*x)+1; % values between 1 and n
     end
 elseif a==0 && b==1
     % nothing to do

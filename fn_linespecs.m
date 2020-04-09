@@ -1,4 +1,6 @@
 function lineoptions = fn_linespecs(varargin)
+%FN_LINESPECS Handle abbreviated plot options (e.g. 'r.') 
+%---
 % function lineoptions = fn_linespecs(line options as in plot)
 % function lineoptions = fn_linespecs({line options as in plot})
 %---
@@ -57,7 +59,7 @@ if mod(nargin,2)==1
         % if Marker property has been set but not LineStyle property
         options = [options {'LineStyle','none'}];
     end
-    lineoptions = [options varargin{2:end}];
+    lineoptions = [options varargin(2:end)];
 else
     lineoptions = varargin;
 

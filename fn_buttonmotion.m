@@ -1,4 +1,6 @@
 function varargout = fn_buttonmotion(fun,varargin)
+%FN_BUTTONMOTION Execute a task while mouse pointer is moved (try 'fn_buttonmotion demo')
+%---
 % function varargout = fn_buttonmotion(fun[,hf][,'doup'][,'pointer',pointer])
 % function [moved ...] = fn_buttonmotion(...,'moved?')
 % function fn_buttonmotion('demo')
@@ -153,10 +155,12 @@ setappdata(hf,'fn_buttonmotion_moved',true)
 setappdata(hf,'fn_buttonmotion_busy',false)
 
 % stop (queued)
-debugstr = getappdata(hf,'fn_buttonmotion_queuestop');
-if ~isempty(debugstr)
-    disp_if_debug(['exec  queued ' debugstr])
-    terminate(hf)
+try
+    debugstr = getappdata(hf,'fn_buttonmotion_queuestop');
+    if ~isempty(debugstr)
+        disp_if_debug(['exec  queued ' debugstr])
+        terminate(hf)
+    end
 end
 
 %---

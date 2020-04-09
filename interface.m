@@ -1,4 +1,6 @@
 classdef interface < hgsetget
+    %INTERFACE     Parent class to create cool graphic interfaces
+    %---
     % Interface class provides utilities for designing a graphic interface,
     % such as allowing the user to resize the graphical elements, loading
     % and auto-saving program options, etc..
@@ -282,8 +284,8 @@ classdef interface < hgsetget
                     dosubframe = ~I.interfacepar.dosavesubframe;
                     I.interfacepar.dosavesubframe = dosubframe;
                     items = I.interfacepar.menuitems;
-                    set(items.savesub,'checked',fn_switch(dosubframe))
-                    set(I.interfacepar.hsubframe,'visible',fn_switch(dosubframe))
+                    set(items.savesub,'checked',onoff(dosubframe))
+                    set(I.interfacepar.hsubframe,'visible',onoff(dosubframe))
                     dodef = dosubframe && isempty(I.interfacepar.subframe);
                 case 'def'
                     dodef = true;
@@ -294,7 +296,7 @@ classdef interface < hgsetget
                 delete(I.interfacepar.hsubframe)
                 [I.interfacepar.subframe I.interfacepar.hsubframe] = deal([]); % just in case selection will be interrupted
                 [I.interfacepar.subframe I.interfacepar.hsubframe] = fn_figselection(I.hf);
-                set(I.interfacepar.hsubframe,'visible',fn_switch(I.interfacepar.dosavesubframe))
+                set(I.interfacepar.hsubframe,'visible',onoff(I.interfacepar.dosavesubframe))
             end
         end
         function set(I,f,x)

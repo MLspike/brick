@@ -1,4 +1,6 @@
 function fn_scrollwheelregister(hobj,arg,arg2)
+%FN_SCROLLWHEELREGISTER Define scrollwheel actions specific to which object the mouse is hovering over 
+%---
 % function fn_scrollwheelregister(hobj,callback[,'default|off'])
 % function fn_scrollwheelregister(hobj,'')
 % function fn_scrollwheelregister(hobj,'off|on')
@@ -49,7 +51,7 @@ if ischar(arg)
             unregister(W,hobj)
             return
         case {'on' 'off'}
-            setactive(W,hobj,fn_switch(arg))
+            setactive(W,hobj,boolean(arg))
             return
         case 'default'
             setdefault(W,hobj)

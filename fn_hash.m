@@ -1,4 +1,6 @@
 function h = fn_hash(inp,varargin)
+%FN_HASH Unique hash number for an array/cell/structure (Copyright M Kleder)
+%---
 % function h = fn_hash(input[,meth][,'char|hexa|HEXA|num'][,n])
 %---
 % This function relies on function hash.m downloaded on Matlab File
@@ -61,7 +63,9 @@ switch outtype
         h(f) = h(f)-'0'+'A';
         h(~f) = h(~f)-'a'+'K';
     case 'num'
-        h = hex2dec(h);
+        % convert to double -> no need for more than 64 bits (otherwise
+        % error in Matlab 2020a+ versions)
+        h = hex2dec(h(1:min(end,16)));
 end
 
 %---

@@ -1,4 +1,6 @@
 function locate(f)
+%LOCATE Reveal file in Explorer (Windows only)
+%---
 % function locate(f)
 %---
 % Reveal file or folder in Windows Explorer. f can also be the name of a
@@ -7,14 +9,16 @@ function locate(f)
 % Thomas Deneux
 % Copyright 2015-2017
 
+g = which(f);
+if ~isempty(g)
+    f = g;
+end
+
 if exist(f,'dir')
     % folder
     cmd = ['!explorer "' f '"'];
 else
     % file
-    try %#ok<TRYNC>
-        f = which(f);
-    end
     cmd = ['!explorer /select,"' f '"'];
 end
 disp(cmd)

@@ -1,4 +1,6 @@
 classdef panelorganizer < hgsetget
+    %PANELORGANIZER    Divide a figure into resizeable panels
+    %---
     % function O = panelorganizer(hparent,'V|H',n[,dorelative[,xx]])
     % function hp = setSubPanel(O,idx,uipanel options...)
     % function O1 = setSubOrg(O,idx,'V|H',n[,dorelative[,xx]])
@@ -156,7 +158,7 @@ classdef panelorganizer < hgsetget
                 O.extents = 1;
             else
                 switch O.bordermode
-                    case 'bothsides'
+                    case 'twosides'
                         xx(idx) = mean(xx);
                         O.extents = xx;
                     case 'push'
@@ -176,7 +178,7 @@ classdef panelorganizer < hgsetget
         function idx = removeSubPanel(O,idx)
             % check
             if ~isvalid(O), return, end % occurs e.g. when closing figure
-            if ishandle(idx) && ~strcmp(get(idx,'type'),'figure')
+            if (ishandle(idx) || isobject(idx)) && (~isvalid(idx) || ~strcmp(get(idx,'type'),'figure'))
                 idx = find([O.children.hobj]==idx,1);
                 if isempty(idx), return, end % happens on reentrant call
             end
@@ -189,7 +191,7 @@ classdef panelorganizer < hgsetget
             O.children(idx) = [];
             % update positions and borders
             switch O.bordermode
-                case 'bothsides'
+                case 'twosides'
                     O.extents = O.extents; % will readjust extents in pixel units and update display
                 case 'push'
                     O.pushExtent(idx)
@@ -211,14 +213,13 @@ classdef panelorganizer < hgsetget
             for i = idx
                 ci = O.children(i);
                 xxi = xx(i);
-                if ~fn_matlabversion('newgraphics'), xxi = max(1,xxi); end
                 switch O.splitmode
                     case 'H'
                         set(ci.hobj,'units','pixel','pos',[sum(xx(1:i-1))+1 1 xxi H])
                     case 'V'
                         set(ci.hobj,'units','pixel','pos',[1 sum(xx(i+1:end))+1 W xxi])
                 end
-                set(ci.hobj,'visible',fn_switch(xx(i)>0))
+                set(ci.hobj,'visible',onoff(xx(i)>0))
             end
         end
         function extents = get.extents(O)
@@ -282,9 +283,9 @@ classdef panelorganizer < hgsetget
                     dx = X - fpos0(4);
                     fpos([2 4]) = [fpos0(2)-dx X];
             end
-            enableListener(O.szlistener,false)
+            O.szlistener.Enabled = false;
             set(O.hobj,'pos',fpos)
-            enableListener(O.szlistener,true)
+            O.szlistener.Enabled = true;
             
             % update object
             switch O.splitmode
@@ -329,7 +330,7 @@ classdef panelorganizer < hgsetget
             hf = fn_parentfigure(O.hobj);
             n = O.nchildren;
             if ischar(idx)
-                if ~fn_switch(get(hf,'Resize')), return, end % not allowed to resize figure
+                if ~boolean(get(hf,'Resize')), return, end % not allowed to resize figure
                 flag = idx;
                 switch [O.splitmode flag]
                     case {'Hfigleft' 'Vfigtop'}

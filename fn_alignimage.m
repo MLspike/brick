@@ -1,4 +1,6 @@
 function [s grid] = fn_alignimage(a,b,varargin)
+%FN_ALIGNIMAGE Manual alignment of 2 images
+%---
 % function [[s grid] =] fn_alignimage(a,b[,shift[,'nouser']]['slider|edit'])
 %---
 % display a superposition of gray-level images a and b, and allow to move
@@ -28,6 +30,8 @@ function [s grid] = fn_alignimage(a,b,varargin)
 %   load trees, 
 %   Y = interp2(1:350,(1:258)',X,-4.3:344.7,(13:270)');
 %   shift=fn_alignimage(X,Y)
+%
+% See also fn_register, fn_translate
 
 % Thomas Deneux
 % Copyright 2011-2017
@@ -152,14 +156,10 @@ end
                 d = [1; 0];
         end
         if isempty(d), return, end
-        if ~isempty(e.Modifier)
-            switch e.Modifier{1}
-                case 'shift'
-                    d = d*5;
-                case 'control'
-                    d = d/10;
-            end
-        end
+        [shft ctrl alt] = fn_flags({'shift' 'control' 'alt'},e.Modifier);
+        if shft, d = d*5; end
+        if ctrl, d = d/10; end
+        if alt, d = d/100; end
         X.xshift = X.xshift + d(1); X.yshift = X.yshift + d(2);
         showimages(true)
     end

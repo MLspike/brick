@@ -1,4 +1,6 @@
 function hl = fn_errorbar(varargin)
+%FN_ERRORBAR Display nice error bars 
+%---
 % function hl = fn_errorbar([x,]y,ey[,flag][,'colors',colors],line options)
 % function hl = fn_errorbar([x,]yy[,flag],...)
 % function hl = fn_errorbar(x,ex,y,ey,'xerror',...)
@@ -104,7 +106,7 @@ switch flag
         if isscalar(x)
             dx = 0;
         else
-            if fn_matlabversion('newgraphics') && ny<=5
+            if ny<=5
                 xdensity = ny/(ny+1.5);
             else
                 xdensity = .8;

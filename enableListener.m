@@ -1,4 +1,6 @@
 function enableListener(hl,val)
+%ENABLELISTENER    Enable/disable a listener
+%---
 % function enableListener(hl)
 %---
 % Enable/disable a listener (or list thereof). Use rather disableListener
@@ -7,10 +9,7 @@ function enableListener(hl,val)
 % See also disableListener, deleteValid
 
 % Thomas Deneux
-% Copyright 2015-2017
+% Copyright 2015-2020
 
-if fn_matlabversion('newgraphics') || isa(hl,'event.listener')
-    hl.Enabled = fn_switch(val,'logical');
-else % property listener, previous to R2014b
-    hl.Enabled = fn_switch(val,'on/off');
-end
+warning 'function enableListener(hl,val) is deprecated, use hl.Enabled = val; instead'
+hl.Enabled = boolean(val);

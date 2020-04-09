@@ -1,4 +1,6 @@
 classdef fn_slider < hgsetget
+    %FN_SLIDER     Special control that improves the functionality of Matlab slider
+    %---
     % function fn_slider([hp,][properties])
     %---
     % Slider
@@ -10,6 +12,10 @@ classdef fn_slider < hgsetget
     %
     % Use setInteger(U,n[,0]) to set all properties so that possible values
     % will be integers from 1 to n (add ,0 for 0 to n-1 instead).
+    % 
+    % The callback function can check whether the slider is being moved
+    % (for example to do only a partial update that will result in smoother
+    % behavior) by checking the 'sliderscrolling' property.
     %
     % See also fn_sliderenhance, fn_sensor, fn_control
     
@@ -23,9 +29,9 @@ classdef fn_slider < hgsetget
         mode        % 'point', 'area', or 'area+point'
         value       % scalar in 'point' mode, 2-element vector in 'area' or 'area+point' mode
         point       % scalar in 'area+point' mode, [] otherwise
-        width
-        stepsize
-        sliderstep
+        width       % width in relative values (i.e. between 0 and 1)
+        step        % controls at the same time the rounding and the slider steps, in absolute values (i.e. at the scale between min and max)
+        sliderstep  % 2 values for rounding and slider steps, in relative values (i.e. between 0 and 1)
         min
         max
     end
@@ -48,7 +54,8 @@ classdef fn_slider < hgsetget
     end
     properties
         layout = 'auto';    % 'left', 'right', 'up', 'down' or 'auto'
-        enabled = true;
+        Enabled = true;
+        grab_sides = true;
     end
     properties (SetAccess='private')
         sliderscrolling = false;
@@ -65,8 +72,8 @@ classdef fn_slider < hgsetget
         initialized = false; % will be set to true once initialized: then only position will be actually updated
     end
     properties (Access='private')
-        area = 1;
-        x = [.25 .75];  % relative values; [left right] in 'area' mode, [nstepcur nstepmax] in 'point' mode
+        area = 0;
+        x = [50 100]; % relative values; [left right] in 'area' mode, [nstepcur nstepmax] in 'point' mode
     end
     properties (Dependent, Access='private')
         sides
@@ -509,19 +516,23 @@ classdef fn_slider < hgsetget
                 U.value = val; % this re-adjusts U.x(1)
             end
         end
-        function step = get.stepsize(U)
+        function step = get.step(U)
             if U.area
                 step = diff(U.x(1:2));
             else
                 step = 1/U.x(2);
             end
+            step = step * diff(U.minmax);
         end
-        function set.stepsize(U,step)
-            step = double(step);
+        function set.step(U,step)
+            if mod(diff(U.minmax),step)
+                error 'step does not divide difference between min and max'
+            end
+            U.inc = double(step) / diff(U.minmax);
             if U.area
-                U.width = step;
+                U.width = U.inc;
             else
-                U.x(2) = 1/step;
+                U.x(2) = 1/U.inc;
             end
         end
         function x = get.sliderstep(U)
@@ -534,7 +545,11 @@ classdef fn_slider < hgsetget
         function set.sliderstep(U,sliderstep)
             sliderstep = double(sliderstep);
             U.inc = sliderstep(1);
-            U.stepsize = sliderstep(2);
+            if U.area
+                U.width = sliderstep(2);
+            else
+                U.x(2) = 1/sliderstep(2);
+            end
         end
         function val = get.value(U)
             if U.area
@@ -597,7 +612,7 @@ classdef fn_slider < hgsetget
             U.value = val;
             if U.area==2, U.point = p; end
             % invisible slider part if min==max
-            set(U.hslider,'visible',fn_switch(diff(mM)))
+            set(U.hslider,'visible',onoff(diff(mM)))
         end
         function set.steps(U,steps)
             % valid only in 'point' mode
@@ -617,7 +632,7 @@ classdef fn_slider < hgsetget
             % re-set value
             U.value = val;
             % invisible slider part if min==max
-            set(U.hslider,'visible',fn_switch(diff(mM)))
+            set(U.hslider,'visible',onoff(diff(mM)))
         end
         function m = get.min(U)
             m = U.minmax(1);
@@ -652,7 +667,7 @@ classdef fn_slider < hgsetget
     % Callbacks
     methods
         function event(U,flag,nscroll)
-            if ~U.enabled, return, end
+            if ~U.Enabled, return, end
             % special case: double-click in area mode
             if U.area && strcmp(flag,'slider') ...
                     && strcmp(get(U.hf,'selectiontype'),'open')
@@ -683,7 +698,7 @@ classdef fn_slider < hgsetget
                 otherwise
                     % slide
                     p0 = mouseposframe(U);
-                    if strcmp(flag,'slider') && U.area
+                    if strcmp(flag,'slider') && U.area && U.grab_sides
                         PIX = 4;
                         xs = mouseposslider(U);
                         if xs(1)<=PIX

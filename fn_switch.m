@@ -15,7 +15,7 @@ function y = fn_switch(varargin)
 % The other cases are specialized shortcuts dedicated (except the last one)
 % to conversions between logical values and the strings 'on' or 'off'.
 %
-% See also fn_cast
+% See also fn_cast, logical, onoff
 
 % Thomas Deneux
 % Copyright 2005-2017
@@ -27,8 +27,13 @@ if nargin<=2
     
     % specialized functions
     if nargin==1
+        warning 'using fn_switch with only 1 argument is deprecated, use ''boolean'' or ''onoff'' function instead'
         % logical <-> on/off conversions
-        if ischar(x)
+        if isa(x,'matlab.lang.OnOffSwitchState')
+            % matlab.lang.OnOffSwitchState -> true/false
+            % this type was introduced in R2017a
+            y = logical(x);
+        elseif ischar(x)
             % on/off -> true/false
             switch x
                 case 'on'
@@ -47,6 +52,7 @@ if nargin<=2
             end
         end
     elseif ischar(varargin{2}) && strcmp(varargin{2},'logical')
+        warning 'using fn_switch with 2d argument ''logical'' is deprecated, use function ''boolean'' instead'
         % on/off -> true/false conversion only
         if ischar(x)
             switch x
@@ -61,6 +67,7 @@ if nargin<=2
             y = logical(x);
         end
     elseif ischar(varargin{2}) && strcmp(varargin{2},'on/off')
+        warning 'using fn_switch with 2d argument ''on/off'' is deprecated, use onoff function instead'
         % true/false -> on/off conversion only
         if ischar(x)
             switch x

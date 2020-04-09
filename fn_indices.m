@@ -1,8 +1,10 @@
 function varargout = fn_indices(s,varargin)
-% function globi = fn_indices(sizes|array,i,j,k,...[,'s2g'])
-% function globi = fn_indices(sizes|array,ijk[,'s2g'])
-% function [i j k...] = fn_indices(sizes|array,globi[,'g2s'])
-% function ijk = fn_indices(sizes|array,globi[,'g2s'])
+%FN_INDICES Convert between global and per-dimension indices 
+%---
+% function globi = fn_indices(sizes|array,i,j,k,...[,'i2g'])
+% function globi = fn_indices(sizes|array,ijk[,'i2g'])
+% function [i j k...] = fn_indices(sizes|array,globi[,'g2i'])
+% function ijk = fn_indices(sizes|array,globi[,'g2i'])
 %---
 % converts between global and per-coordinate indices
 % 
@@ -42,7 +44,7 @@ end
 %if nd==1, error('why do you need to convert per-coordinates indices to global indices for a vector!!??'), end
 % (which case are we treating?)
 x = varargin{1};
-if length(varargin)>2
+if length(varargin)>=2
     if strcmp(convtype,'g2i'), error argument, else convtype = 'i2g'; end
     if ~isvector(x), error 'first of several arguments should be a vector', end
     ijk = zeros(length(varargin),length(x));

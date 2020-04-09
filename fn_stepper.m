@@ -1,4 +1,6 @@
 classdef fn_stepper < hgsetget
+    %FN_STEPPER    Edit a numeric value, includes increment/decrement buttons
+    %---
     % function fn_stepper([n,][properties])
     % See also fn_slider, fn_control
     
@@ -58,7 +60,7 @@ classdef fn_stepper < hgsetget
             P.coerce = false;
             P.min = -Inf;
             P.max =  Inf;
-            P.format = '%.2g';
+            P.format = '';
             P.doset = true;
             
             % Objects
@@ -172,7 +174,7 @@ classdef fn_stepper < hgsetget
                 val = min(P.max,max(P.min,val)); %#ok<CPROP,*MCSUP>
                 if P.coerce && P.step, val = fn_round(val,P.step); end
                 for k=1:P.nx
-                    set(P.htext(k),'string',num2str(val(k),P.format))
+                    set(P.htext(k),'string',num2nicestr(val(k),P.format))
                 end
             end
             P.value = val;
@@ -208,7 +210,7 @@ classdef fn_stepper < hgsetget
                 case 'slider'
                     P.value(k) = P.value(k) + P.step*get(P.hslider(k),'value');
                     set(P.hslider(k),'value',0);
-                    set(P.htext(k),'string',num2str(P.value(k),P.format));
+                    set(P.htext(k),'string',num2nicestr(P.value(k),P.format));
                 case 'text'
                     P.value(k) = str2double(get(P.htext(k),'string')); 
             end
@@ -229,3 +231,12 @@ classdef fn_stepper < hgsetget
     
 end
 
+%---
+function str = num2nicestr(x,fmt)
+
+if isempty(fmt)
+    fmt = fn_switch(mod(x,1),'%.2g','%i');
+end
+str = num2str(x,fmt);
+
+end

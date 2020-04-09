@@ -1,4 +1,6 @@
 function out = fn_savefig(varargin)
+%FN_SAVEFIG Save figure with a number of options
+%---
 % function fn_savig([hobj][,fname][,options...])
 % function im = fn_savig([hobj][,options...])
 %---
@@ -96,14 +98,16 @@ else
             hfig = fn_parentfigure(ha);
         elseif isempty(hfig) && ~doax && all(fn_isfigurehandle(a))
             hfig = a;
-        elseif isnumeric(a) && isempty(s.scaling)
+        elseif isnumeric(a) && isscalar(a) && isempty(s.scaling)
             s.scaling = a;
-        elseif isnumeric(a)
+        elseif isnumeric(a) && isscalar(a)
             % problem: what we thought was a scaling parameter was
             % actually a figure handle!?
             if ~fn_isfigurehandle(s.scaling), error 'numeric argument seems to be neither a figure handle, neither a scaling parameter', end
             hfig = [hfig s.scaling]; %#ok<AGROW>
             s.scaling = a;
+        elseif isnumeric(a) && isvector(a) && length(a) == 4
+            s.subframe = a;
         elseif iscell(a)
             if fn_ismemberstr(a{1},{'png' 'bmp' 'jpg' 'svg' 'eps' 'ps' 'pdf' 'fig'})
                 s.format = lower(a);
@@ -240,7 +244,7 @@ for k=1:nfig
             if isempty(invertcolor)
                 invertcolor = isempty(findall(hfk,'type','uicontrol'));
             end
-            set(hfk,'inverthardcopy',fn_switch(invertcolor))
+            set(hfk,'inverthardcopy',onoff(invertcolor))
             printflags = fn_switch(invertcolor,{},{'-loose'});
             for i=1:length(formatk)
                 fnamei = [fbasek '.' formatk{i}];                              % [new: pdf direct] 
@@ -264,7 +268,9 @@ for k=1:nfig
             % restore callbacks and so on
             restorefig(state)
         case 'capture'
-            if strcmp(s.subframe,'select sub-rectangle')
+            if isnumeric(s.subframe)
+                rect = {s.subframe};
+            elseif strcmp(s.subframe,'select sub-rectangle')
                 rect = {fn_figselection(hfk)};
             elseif doax
                 rect = {fn_pixelpos(ha,'recursive','strict')};

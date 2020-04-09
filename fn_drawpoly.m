@@ -1,4 +1,6 @@
 function hl = fn_drawpoly(poly,varargin)
+%FN_DRAWPOLY Shortcut for line(poly(:,1),poly(:,2))
+%---
 % function hl = fn_drawpoly(poly[,'close'],line options...)
 %---
 % shortcut for line(poly(1,:),poly(2,:),varargin{:})
@@ -9,6 +11,11 @@ function hl = fn_drawpoly(poly,varargin)
 % Copyright 2006-2017
 
 if nargin==0, help fn_drawpoly, end
+
+if isa(poly,'selectionND')
+    poly = poly.convert('poly2D');
+    poly = poly.poly.points;
+end
 
 if size(poly,1)~=2
     if size(poly,2)==2

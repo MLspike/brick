@@ -1,5 +1,11 @@
 function c = fn_watch(hf,varargin)
+%FN_WATCH Change the pointer to a watch during long computations
+%---
 % function c = fn_watch([hf])
+%---
+% Replace mouse pointer of the current (or specified) figure by a sandglass
+% until returned object c will be killed (typically when leaving the
+% function where it lies). 
 
 % Thomas Deneux
 % Copyright 2012-2012
@@ -47,7 +53,7 @@ t = getappdata(hf,'fn_watch_timer');
 if isempty(t)
     t = timer('StartDelay',.5,'TimerFcn',@(u,e)startfcn(hf));
     setappdata(hf,'fn_watch_timer',t)
-    fn_deletefcn(hf,@(u,e)delete(t));
+    addlistener(hf,'ObjectBeingDestroyed',@(u,e)delete(t));
 end
 
 function startfcn(hf)

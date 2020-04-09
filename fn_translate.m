@@ -26,7 +26,7 @@ function [y weight J dweight] = fn_translate(x,shift,varargin)
 %           defined also have a NaN value)
 % - dweight derivative of weight with respect to shift
 %
-% See also fn_register
+% See also fn_register, fn_alignimage
 
 % Thomas Deneux
 % Copyright 2009-2017
@@ -50,8 +50,8 @@ end
 % movies
 if size(x,3)>1
     [ni nj nt] = size(x);
-    if ~isequal(size(shift),[2 nt]), error 'size mismatch for translation parameters', end
-    y = zeros(ni,nj,nt,datatype);    
+    if ~isequal(size(shift(:,:)),[2 nt]), error 'size mismatch for translation parameters', end
+    y = zeros(size(x),datatype);    
     for i=1:nt, y(:,:,i) = fn_translate(x(:,:,i),shift(:,i),'full',method,datatype); end
     if strcmp(shapeflag,'valid')
         if size(shift,1)>2

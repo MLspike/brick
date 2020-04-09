@@ -1,6 +1,8 @@
 function fn_controlpositions(hu,hp,posrel,pospix)
-% function fn_controlpositions(hu,hp,posrel,pospix)
+%FN_CONTROLPOSITIONS Set an object position using a combination of absolute and relative (to any other object) coordinates 
 %---
+% function fn_controlpositions(hu,hp,posrel,pospix)
+% ---
 % set the position of controls relatively to an axes, and set the
 % appropriate listeners to automatically update those positions in case of
 % change of figure position, etc...
@@ -8,7 +10,7 @@ function fn_controlpositions(hu,hp,posrel,pospix)
 % Input
 % - hu      control handle
 % - hp      axes or figure handle
-% - posrel  position relative to axes/figure ([0 0] = bottom-left corner,
+% - posrel  2 or 4 elements vector - position relative to axes/figure ([0 0] = bottom-left corner,
 %           [1 1] = up-right corner)
 % - pospix  position in pixels to add to 'posrel' and size of control
 
@@ -22,7 +24,7 @@ posrel = row(posrel); if length(posrel)==2, posrel(3:4)=0; end
 pospix = row(pospix); if length(pospix)==2, pospix(3:4)=0; end
 
 % delete previous listeners
-try %#ok<TRYNC>
+if isgraphics(hu)
     hl = getappdata(hu,'fn_controlpositions');
     if ~isempty(hl), deleteposlisteners(hl), end
 end
@@ -41,7 +43,7 @@ elseif get(hp,'parent')==get(hu,'parent')
     hl.ppos = fn_pixelposlistener(hp,updatefcn);
     if strcmp(get(hp,'type'),'axes')
         hl.axlim = addlistener(hp,{'XLim','YLim'},'PostSet',updatefcn);
-        enableListener(hl.axlim,strcmp(get(hp,'DataAspectRatioMode'),'manual'));
+        hl.axlim.Enabled = strcmp(get(hp,'DataAspectRatioMode'),'manual');
         hl.axratio = addlistener(hp,'DataAspectRatioMode','PostSet', ...
             @(m,evnt)axlistener(hp,hl,updatefcn));
     end
@@ -50,19 +52,21 @@ else
 end
 
 % attach listeners to the object
-try setappdata(hu,'fn_controlpositions',hl), end %#ok<TRYNC>
+if isgraphics(hu)
+    setappdata(hu,'fn_controlpositions',hl)
+end
 
 % delete control upon parent deletion
-fn_deletefcn(hp,@(u,e)delete(hu(ishandle(hu) || (isobject(hu) && isvalid(hu)))))
+addlistener(hp,'ObjectBeingDestroyed',@(u,e)delete(hu(ishandle(hu) || (isobject(hu) && isvalid(hu)))));
 
 % delete listeners upon control deletion
-fn_deletefcn(hu,@(u,e)deleteposlisteners(hl))
+addlistener(hu,'ObjectBeingDestroyed',@(u,e)deleteposlisteners(hl));
 
 %---
 function axlistener(hp,hl,updatefcn)
 
 feval(updatefcn)
-enableListener(hl.axlim,strcmp(get(hp,'DataAspectRatioMode'),'manual'));
+hl.axlim.Enabled = strcmp(get(hp,'DataAspectRatioMode'),'manual');
     
 %---
 function deleteposlisteners(hl)

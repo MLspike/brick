@@ -1,4 +1,6 @@
 function playbutton = fn_playmovie(M,varargin)
+%FN_PLAYMOVIE Simple showing of a movie
+%---
 % function playbutton = fn_playmovie(M[,clip][,fps][,'once'][,'axisnormal'])
 %---
 % Simple display of movie.
@@ -55,7 +57,7 @@ if nargout>0
 end
 
 % prepare timer
-t = timer('timerfcn',@(u,e)nextframe(),'ExecutionMode','fixedrate','period',1/fps);
+t = timer('timerfcn',@(u,e)nextframe(),'ExecutionMode','fixedrate','period',round(1e3/fps)*1e-3);
 
 % play
 i = 0;

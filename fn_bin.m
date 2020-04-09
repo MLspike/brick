@@ -1,4 +1,4 @@
-function [data maskbin] = fn_bin(data,bins,varargin)
+function [data, maskbin] = fn_bin(data,bins,varargin)
 % function data = fn_bin(data,bins(vector)|xybin(scalar)[,fun][,'same'][,'mask',mask])
 % function [data maskbin] = fn_bin(data,xybin(scalar)[,'mask',mask])
 %---
@@ -13,6 +13,8 @@ function [data maskbin] = fn_bin(data,bins,varargin)
 % - fun:
 %   'mean'      average over each bin [=default]
 %   'sum'       sum over each bin
+%   'nmean|nsum' average of sum even of incomplete bins (i.e. these bins
+%               will not be assigned NaN values)
 %   'mode'      take most frequent value inside each bin
 %   'min|max'   take min or max over each bin
 %   'and|or'    performs a logical 'and' or 'or' rather than averaging;
@@ -44,7 +46,7 @@ while karg<=length(varargin)
     switch flag
         case 'same'
             dosame = true;
-        case {'sum' 'mode'}
+        case {'sum' 'mode' 'nmean' 'nsum'}
             op = flag;
         case {'min' 'max'}
             op = flag;
@@ -236,5 +238,5 @@ switch dological
     case 1
         data = (data==1);
     case -1
-        data = logical(data);
+        data = boolean(data);
 end

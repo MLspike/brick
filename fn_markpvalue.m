@@ -1,4 +1,6 @@
 function fn_markpvalue(x,y,p,varargin)
+%FN_MARKPVALUE Draw stars to mark significancy of results
+%---
 % function fn_markpvalue(x,y,p[,'ns|p'][,'vertical'][,text options...])
 %---
 % Mark p-value if significant with star(s) at location x,y. 
@@ -23,8 +25,8 @@ end
 displaymode = 'default'; orientation = 'horizontal';
 while ~isempty(topt) && ischar(topt{1})
     switch lower(topt{1})
-        case 'ns'
-            displaymode = 'ns';
+        case {'ns' 'all'}
+            displaymode = lower(topt{1});
         case 'p'
             displaymode = 'pvalue';
         case 'vertical'
@@ -41,7 +43,7 @@ if ischar(p)
 elseif strcmp(displaymode,'pvalue')
     stars = num2str(p,'p=%.3g');
 else
-    doNS = strcmp(displaymode,'ns');
+    doNS = ismember(displaymode,{'ns' 'all'});
     nstar = floor(log10(1/p));
     if p>.05
         if doNS, stars = 'n.s.'; else return, end
@@ -56,6 +58,9 @@ else
             'horizontal',['*' num2str(nstar)], ...
             'vertical',{'*' num2str(nstar)});
         %stars = ['p<1e-' num2str(nstar)];
+    end
+    if strcmp(displaymode,'all')
+        stars = [stars num2str(p,' (p=%.3g)')];
     end
 end
 

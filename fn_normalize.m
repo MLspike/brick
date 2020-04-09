@@ -1,4 +1,6 @@
 function x = fn_normalize(x,dim,flag)
+%FN_NORMALIZE Normalize data based on averages in some specific dimension
+%---
 % function x = fn_normalize(x,dim,flag)
 %---
 % Input:
@@ -58,7 +60,6 @@ switch flag
         end
         x = fn_div(x,sqrt(m2));
     case 'norm2'
-        x = fn_subtract(x,m);
         m2 = x.^2;
         for k=1:nd
             m2 = sum(m2,dim(k));

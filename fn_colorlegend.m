@@ -34,6 +34,7 @@ else
     end
     if isempty(hl)
         hl = flipud(findobj(gca,'type','line'));
+        hl = hl(1:length(names));
     end
 end
 
@@ -50,7 +51,7 @@ hf = fn_parentfigure(ha);
 
 % Legend axes
 hleg = axes('parent',hp,'pos',[.4 .4 .2 .2],'units','pixel','handlevisibility','off');
-set(hleg,'visible',fn_switch(doframe))
+set(hleg,'visible',onoff(doframe))
 [w h] = fn_pixelsize(hleg);
 set(hleg,'xlim',[0 w],'ylim',[-h 0]) % use pixel coordinate systems to ease everything
 set(hleg,'xtick',[],'ytick',[],'box','on') % some esthetics
@@ -105,7 +106,7 @@ uimenu(m,'label','Delete legend','callback',@(u,e)delete(hleg))
 set([hleg ht],'UIContextMenu',m)
 
 % Delete legend upon deletion of the lines
-fn_deletefcn(ht,@(u,e)deleteValid(hleg))
+addlistener(ht(1),'ObjectBeingDestroyed',@(u,e)deleteValid(hleg));
 
 % Output
 if nargout==0, clear hleg, end

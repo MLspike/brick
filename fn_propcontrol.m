@@ -1,4 +1,6 @@
 classdef fn_propcontrol < hgsetget
+%FN_PROPCONTROL Create controls automatically linked to an object property
+%---
 % function fn_propcontrol(obj,prop,spec,graphic object options...)
 % function fn_propcontrol(obj,prop,spec,{graphic object options...})
 % function hu = fn_propcontrol.createcontrol(...)
@@ -95,58 +97,21 @@ methods
             if length(spec)==1
                 error 'missing list of values'
             elseif iscell(spec{2})
-                M.valuelist = spec{2};
-                if length(spec)>=3
-                    M.labellist = spec{3}; 
-                    if length(M.labellist)==length(M.valuelist)-1
-                        M.dodefaultvalue = true;
-                        M.defaultvalue = M.valuelist{end};
-                        M.valuelist(end) = [];
-                    elseif length(M.labellist)==length(M.valuelist)+1
-                        M.doother = true;
-                    elseif length(M.labellist)~=length(M.valuelist)
-                        error 'number of labels must be equal to or one less than number of values'
-                    end
-                end
-                if length(spec)>=4
-                    M.shortlabels = spec{4};
-                    if ~iscell(M.shortlabels) || length(M.shortlabels)~=length(M.labellist)-M.doother
-                        error 'number of short labels does not match number of labels'
-                    end
-                end
+                % format {spec {values...} {labels...} [{shortlabels...}]}
+                M.setValueList(spec{2:end});
             else
-                M.valuelist = spec(2:end);
+                % format {spec value1 value2 ...}
+                M.setValueList(spec(2:end));
             end
             spec = spec{1};
             if M.dodefaultvalue && ~ismember(spec,{'menu' 'menuval' 'menugroup'})
                 error 'default value is possible only for ''menu'', ''menuval'' or ''menugroup'' options, otherwise the number of labels must be equal to the number of values'
             end
         elseif ischar(spec) && ismember(spec,{'listbox' 'popupmenu'})
+            % format 'spec', ..., 'string', {value1 value2 ...}, ...
             kstring = strcmpi(varargin(1:2:end),'string');
             if isempty(kstring), error 'missing list of values', end
-            M.valuelist = cellstr(varargin{kstring});
-        end
-        
-        % special: color
-        M.docolor = false;
-        if ~isempty(regexpi(prop,'color')) && ~isempty(M.valuelist) && any(fn_map(@ischar,M.valuelist))
-            % try converting color names to colors
-            try
-                [colornum colorname] = deal(cell(1,length(M.valuelist)));
-                for i=1:length(colornum)
-                    [colornum{i} colorname{i}] = fn_colorbyname(M.valuelist{i},'strict');
-                end
-                M.valuelist = colornum;
-                if isempty(M.labellist), M.labellist = repmat({'X'},1,length(colornum)); end
-                if isempty(M.shortlabels), M.shortlabels = colorname; end
-                M.docolor = true;
-            catch
-                set(0,'defaultlinecolor',deflinecolor)
-            end
-        end
-        if ~isempty(M.valuelist)
-            if isempty(M.labellist), M.labellist = fn_num2str(M.valuelist); end
-            if isempty(M.shortlabels), M.shortlabels = M.labellist; end
+            M.setValueList(varargin{kstring});
         end
         
         % set type and style
@@ -212,7 +177,7 @@ methods
                 dosep = ~isempty(get(mparent,'children'));
                 for i=1:n
                     M.hu(i) = uimenu(mparent,'label',M.labellist{i});
-                    if M.docolor, set(M.hu(i),'foregroundcolor',colornum{i}), end
+                    if M.docolor, set(M.hu(i),'foregroundcolor',M.valuelist{i}), end
                     if i==1 && dosep, set(M.hu(i),'separator','on'), end
                     if ~isempty(varargin), set(M.hu(i),varargin{:}); end
                 end
@@ -244,7 +209,7 @@ methods
         M.proplistener = addlistener(obj,prop,'PostSet',@(u,e)updatevalue(M));
         
         % delete everything upon object deletion or control deletion
-        fn_deletefcn(obj,@(u,e)delete(M))
+        addlistener(obj,'ObjectBeingDestroyed',@(u,e)delete(M));
         set(M.hu,'deletefcn',@(u,e)delete(M))
     end
     function delete(M)
@@ -257,16 +222,15 @@ end
 methods
     function updatevalue(M)
         curval = get(M.obj(1),M.prop);
-        if strcmp(M.type,'on/off'), curval = fn_switch(curval,'logical'); end
         if M.docolor
             % try to convert color to nice string representation
-            [colornum colorname] = fn_colorbyname(curval);
+            [colornum, colorname] = fn_colorbyname(curval);
             if ~isempty(colornum), curval = colornum; end
         end
         switch M.style
             % type logical or on/off
             case 'menu'
-                set(M.hu,'checked',fn_switch(curval))
+                M.hu.Checked = onoff(curval);
             case {'checkbox' 'radiobutton'}
                 set(M.hu,'value',curval)
             % edit
@@ -324,15 +288,15 @@ methods
             % type logical or on/off
             case 'menu'
                 if strcmp(M.type,'on/off')
-                    set(M.obj,M.prop,fn_switch(get(M.hu,'checked'),'toggle'));
+                    set(M.obj,M.prop,onoff(~boolean(get(M.hu,'checked'))));
                 else
-                    set(M.obj,M.prop,~fn_switch(get(M.hu,'checked'),'logical'));
+                    set(M.obj,M.prop,~logical(get(M.hu,'checked')));
                 end
             case {'checkbox' 'radiobutton'}
                 if strcmp(M.type,'on/off')
                     set(M.obj,M.prop,fn_switch(get(M.hu,'checked'),'on/off'));
                 else
-                    set(M.obj,M.prop,logical(get(M.hu,'value')));
+                    set(M.obj,M.prop,boolean(get(M.hu,'value')));
                 end
             % edit
             case 'edit'
@@ -370,15 +334,68 @@ methods
     end
 end
 
+% Change value list
+methods
+    function setValueList(M,valuelist,labellist,shortlabels)
+        % Set value, label, shortlabel lists
+        M.valuelist = valuelist;
+        if nargin>=3
+            M.labellist = labellist;
+            if length(M.labellist)==length(M.valuelist)-1
+                M.dodefaultvalue = true;
+                M.defaultvalue = M.valuelist{end};
+                M.valuelist(end) = [];
+            elseif length(M.labellist)==length(M.valuelist)+1
+                M.doother = true;
+            elseif length(M.labellist)~=length(M.valuelist)
+                error 'number of labels must be equal to or one less than number of values'
+            end
+        else
+            M.labellist = [];
+        end
+        if nargin>=4
+            M.shortlabels = shortlabels;
+            if ~iscell(M.shortlabels) || length(M.shortlabels)~=length(M.labellist)-M.doother
+                error 'number of short labels does not match number of labels'
+            end
+        else
+            M.shortlabels = [];
+        end
+        
+        % special: color
+        M.docolor = false;
+        if ~isempty(regexpi(M.prop,'color')) && any(fn_map(@ischar,M.valuelist))
+            % try converting color names to colors
+            try
+                [colornum colorname] = deal(cell(1,length(M.valuelist)));
+                for i=1:length(colornum)
+                    [colornum{i} colorname{i}] = fn_colorbyname(M.valuelist{i},'strict');
+                end
+                M.valuelist = colornum;
+                if isempty(M.labellist), M.labellist = repmat({'X'},1,length(colornum)); end
+                if isempty(M.shortlabels), M.shortlabels = colorname; end
+                M.docolor = true;
+            end
+        end
+        
+        % set labels and short labels if they are empty
+        if ~isempty(M.valuelist)
+            if isempty(M.labellist), M.labellist = fn_num2str(M.valuelist); end
+            if isempty(M.shortlabels), M.shortlabels = M.labellist; end
+        end
+    end
+        
+end
+
 % Misc
 methods
     function set.visible(M,b)
-        M.visible = fn_switch(b,'logical');
-        set([M.hparent M.hu],'visible',fn_switch(b,'on/off')) %#ok<*MCSUP>
+        M.visible = boolean(b);
+        set([M.hparent M.hu],'visible',onoff(b)) %#ok<*MCSUP>
     end
     function set.enabled(M,b)
-        M.enabled = fn_switch(b,'logical');
-        set([M.hparent M.hu],'enabled',fn_switch(b,'on/off')) %#ok<*MCSUP>
+        M.enabled = boolean(b);
+        set([M.hparent M.hu],'enabled',onoff(b)) %#ok<*MCSUP>
     end
 end
 

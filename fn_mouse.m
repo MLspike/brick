@@ -10,11 +10,12 @@ function varargout = fn_mouse(varargin)
 % 'point'       [default] get coordinates on mouse click
 % 'cross'       get coordinates on mouse click - use cross pointer
 % 'rect'        get a rectangle selection (format [xstart ystart xsize ysize])
-% 'rectax'      get a rectangle selection (format [xstart xend ystart yend])
+% 'rectax'      get a rectangle selection (format [xstart xend ystart yend], using bottom-left corner as start)
+% 'rectaxp'     get a rectangle selection (format [xstart xend; ystart yend], using first point pressed as start)
 % 'rectangle'   get a rectangle selection (format [x1 x2 x3 x4; y1 y2 y3 y4])
 % 'poly'        polygone selection
 % 'line' or 'segment'       single line segment
-% 'xsegment', 'ysegment'    a segment in x or y (formag [start end]) 
+% 'xsegment', 'ysegment'    a segment in x or y (format [start end]) 
 % 'free'        free-form drawing
 % 'ellipse'     circle or ellipse
 % 'ring'        circular or elliptic ring 
@@ -23,6 +24,8 @@ function varargout = fn_mouse(varargin)
 % -     use as first point the current point in axes (rect, poly, free, ellipse)
 % @     closes polygon or line (poly, free, spline)
 % ^     enable escape: cancel current selection if a second key is pressed
+% *     when drawing circles, make them circular on screen instead of with
+%       respect to coordinates
 % :num: interpolates line with one point every 'num' pixel (poly, free, ellipse)
 %       for 'ellipse' mode, if :num; is not specified, output is a cell
 %       array {center axis e} event in the case of only one outpout argument
@@ -58,6 +61,7 @@ showselection = any(mode=='+');
 openline = ~any(mode=='@');
 dointerp = any(mode==':');
 doescape = any(mode=='^');
+doscreencircle = any(mode=='*');
 
 % Suspend callbacks
 SuspendCallbacks(ha)
@@ -107,7 +111,47 @@ switch type
             otherwise
                 error 'too many output arguments'
         end
-    case {'rect' 'rectax' 'rectangle' 'xsegment' 'ysegment'}
+    case {'1D'}
+        % one dimension selection
+        % draw vertical or horizontal lines
+        % return data with one dimension coordinates of first and second
+        % points
+        if doescape, warning 'escape option is not valid for type ''line''', end
+        
+        if strcmp(mode,'1D vertical')
+            %if ~buttonalreadypressed, waitforbuttonpressmsg(ha,msg), end
+            p1 = get(ha,'CurrentPoint'); p1 = p1(1,1:2);
+            hl(1) = line('xdata',p1([1 1]),'ydata',[.5 -.5],'parent',ha,'color','k','linestyle','--');
+            hl(2) = line('xdata',p1([1 1]),'ydata',[.5 -.5],'parent',ha,'color','b','linestyle','--');
+            data = fn_buttonmotion({@draw1Dvertical,ha,hl,p1},hf,'doup');
+            lineOneCoodinates = get(hl(1),'xdata');
+            lineTwoCoodinates = get(hl(2),'xdata');
+        else
+            %if ~buttonalreadypressed, waitforbuttonpressmsg(ha,msg), end
+            p1 = get(ha,'CurrentPoint'); p1 = p1(1,1:2);
+            hl(1) = line('xdata',[.5 -.5],'ydata',p1([2 2]),'parent',ha,'color','k','linestyle','--');
+            hl(2) = line('xdata',[.5 -.5],'ydata',p1([2 2]),'parent',ha,'color','b','linestyle','--');
+            data = fn_buttonmotion({@draw1Dhorizontal,ha,hl,p1},hf,'doup');
+            lineOneCoodinates = get(hl(1),'ydata');
+            lineTwoCoodinates = get(hl(2),'ydata');
+        end
+            data = [lineOneCoodinates(1), lineTwoCoodinates(1)];
+            delete(hl(2))
+        
+            if showselection
+                %set(hl(1),'color','y')
+            else
+                delete(hl(1))
+            end
+            switch nargout
+                case {0 1}
+                    varargout = {data};
+                case 2
+                    varargout = {data(:,1) data(:,2)};
+                otherwise
+                    error 'too many output arguments'
+            end
+    case {'rect' 'rectax' 'rectaxp' 'rectangle' 'xsegment' 'ysegment'}
         % if button has already been pressed, no more button will be
         % pressed, so it is not necessary to suspend callbacks
         if ~buttonalreadypressed, waitforbuttonpressmsg(ha,msg), end
@@ -124,7 +168,7 @@ switch type
             varargout = {[]};
             return
         end
-        if showselection,
+        if showselection
             line(rect(1,[1:4 1]),rect(2,[1:4 1]),'color','k','parent',ha)
             line(rect(1,[1:4 1]),rect(2,[1:4 1]),'color','w','linestyle',':','parent',ha),
         end
@@ -138,6 +182,10 @@ switch type
                     rect = [cornera' cornerb'-cornera'];
                 case 'rectax'
                     rect = [cornera(1) cornerb(1) cornera(2) cornerb(2)];
+                case 'rectaxp'
+                    rect = rect(:,[1 3]);
+                case 'rectangle'
+                    % already correct format
                 case 'xsegment'
                     rect = [cornera(1) cornerb(1)];
                 case 'ysegment'
@@ -199,7 +247,7 @@ switch type
             varargout = {[]};
             return
         end
-        if showselection,
+        if showselection
             if openline, back=[]; else back=1; end
             oldnextplot=get(ha,'NextPlot'); set(ha,'NextPlot','add')
             plot(x(1,[1:end back]),x(2,[1:end back]),'k-','parent',ha),
@@ -218,25 +266,56 @@ switch type
         hl(2) = line(p(1,1),p(1,2),'color','w','linestyle',':','parent',ha);
         info = fn_pointer('flag','init');
         % circle
-        fn_buttonmotion({@drawellipse,ha,hl,info},hf,'doup')
+        if doscreencircle
+            sz = fn_pixelsize(ha);
+            ax = axis(ha); 
+            screenratio = sz(2)/sz(1); % height / width
+            axratio = (ax(4)-ax(3))/(ax(2)-ax(1)); % same, in axes coordinates
+            yadjust = screenratio / axratio;
+        else
+            yadjust = 1;
+        end
+        fn_buttonmotion({@drawellipse,ha,hl,info,yadjust},hf,'doup')
         % make it an ellipse
         if strcmp(info.flag,'width')
             % change eccentricity -> ellipse
-            fn_buttonmotion({@drawellipse,ha,hl,info},hf)
+            fn_buttonmotion({@drawellipse,ha,hl,info,yadjust},hf)
         end
         % ring -> set the diameter of the internal circle
         if strcmp(type,'ring')
             info.flag = 'ring';
-            fn_buttonmotion({@drawellipse,ha,hl,info},hf)
+            fn_buttonmotion({@drawellipse,ha,hl,info,yadjust},hf)
         end
         x = [get(hl(1),'xdata'); get(hl(1),'ydata')];
         ax = info.axis;
         u = (ax(:,2)-ax(:,1))/2;
         center = mean(ax,2);
-        value = {center u info.eccentricity};
+        ecc = info.eccentricity;
+        if doscreencircle && ~all(u==0)
+            % ellipse is defined for the moment in a referential where
+            % y-axis has been scaled by yadjust, so we need to convert back
+            % to the original referential
+            % we use index 1/2 for respectively original/adjusted
+            % referentials
+            
+            % vector conversion from ref1 to ref2
+            M = diag([1 yadjust]);
+            
+            % first convert to symmatrix representation
+            u2 = M*u;
+            e2 = ecc;
+            A2 = EllipseVector2Sym(u2,e2);
+            
+            % second apply affinity M^-1 (conversion from ref2 back to ref1)
+            [u1, e1, ~] = EllipseAffinity(u2,e2,A2,M^-1);
+            [u, ecc] = deal(u1, e1); % that's it
+        end
+        value = {center u ecc};
         if strcmp(type,'ring'), value{4} = info.relradius; end
+        
         delete(hl)
-        if showselection,
+        
+        if showselection
             oldnextplot=get(ha,'NextPlot'); set(ha,'NextPlot','add')
             plot(x(1,1:end),x(2,1:end),'k-','parent',ha),
             plot(x(1,1:end),x(2,1:end),'w:','parent',ha),
@@ -282,7 +361,7 @@ function state = guisuspend(ha)
 hf = fn_parentfigure(ha);
 state.hf        = hf;
 state.obj       = findobj(hf);
-state.hittest   = get(state.obj,'hittest');
+state.hittest   = fn_get(state.obj,'hittest');
 state.buttonmotionfcn   = get(hf,'windowbuttonmotionfcn');
 state.buttondownfcn     = get(hf,'windowbuttondownfcn');
 state.buttonupfcn       = get(hf,'windowbuttonupfcn');
@@ -290,7 +369,7 @@ state.keydownfcn        = get(hf,'keypressfcn');
 state.keyupfcn = get(hf,'keyreleasefcn');
 % state.handlevis = get(ha,'handlevisibility'); % seems not necessary
 
-set(state.obj,'hittest','off')
+fn_set(state.obj,'hittest','off')
 set(hf,'hittest','on','windowbuttonmotionfcn','', ...
     'windowbuttondownfcn','','windowbuttonupfcn','', ...
     'keypressfcn','','keyreleasefcn','')
@@ -299,9 +378,7 @@ set(hf,'hittest','on','windowbuttonmotionfcn','', ...
 %-------------------------------------------------
 function guirestore(ha,state)
 
-for k=1:length(state.obj)
-    set(state.obj(k),'hittest',state.hittest{k});
-end
+fn_set(state.obj,'hittest',state.hittest);
 hf = state.hf;
 set(hf,'windowbuttonmotionfcn',state.buttonmotionfcn, ...
     'windowbuttondownfcn',state.buttondownfcn, ...
@@ -316,6 +393,24 @@ function data=drawline(ha,hl,p1)
 p2 = get(ha,'currentpoint');
 data = [p1(:) p2(1,1:2)'];
 set(hl,'xdata',data(1,:),'ydata',data(2,:))
+drawnow update
+
+function data=draw1Dvertical(ha,hl,p1)
+% update vertical line using xdata coordinate of hl
+% return x coordinates of p1 and of current point
+p2 = get(ha,'currentpoint');
+data = [p1(1,1) p2(1,1)];
+%hl(2) = line('xdata',p2([1 1]),'ydata',[.5, -.5],'parent',ha,'color','k');
+set(hl(2),'xdata',p2([1 1]),'ydata',[.5, -.5])
+drawnow update
+
+function data=draw1Dhorizontal(ha,hl,p1)
+% update horizontal line using ydata coordinate of hl
+% return y coordinates of p1 and of current point
+p2 = get(ha,'currentpoint');
+data = [p1(1,2) p2(1,2)];
+%hl(2) = line('xdata',p2([1 1]),'ydata',[.5, -.5],'parent',ha,'color','k');
+set(hl(2),'xdata',[.5, -.5],'ydata',p2([3, 3]))
 drawnow update
 
 %-------------------------------------------------
@@ -362,7 +457,11 @@ set(hl,'xdata',xdata,'ydata',ydata)
 drawnow update
 
 %-------------------------------------------------
-function drawellipse(ha,hl,info)
+function drawellipse(ha,hl,info,yadjust)
+% @param ha: Axes 
+% @param hl: Line
+% @param info: fn_pointer
+% @param doscreencircle: logical
 
 p = get(ha,'currentpoint');
 p = p(1,1:2)';
@@ -375,16 +474,16 @@ switch flag
         ydata = get(hl(1),'ydata');
         info.start = [xdata; ydata];
         info.axis = [xdata xdata; ydata ydata];
-        info.eccentricity = .999;
+        info.eccentricity = 0.999;
         info.relradius = [];
         info.flag = 'axis';
-        set(get(ha,'parent'),'windowbuttondownfcn',@(hf,evnt)set(info,'flag','click'))
-        drawellipse(ha,hl,info)
+        set(fn_parentfigure(ha),'windowbuttondownfcn',@(hf,evnt)set(info,'flag','click'))
+        drawellipse(ha,hl,info,yadjust)
         return
     case 'click'
         ax = info.axis;
         u = (ax(:,2)-ax(:,1))/2;
-        v = [u(2); -u(1)];
+        v = [u(2)*yadjust; -u(1)/yadjust]; % vector that is orthogonal to u and of same norm as u in the 'yadjust' changed referential
         p = ax(:,1) + u + v;
         p0 = fn_coordinates(ha,'a2s',p,'position');
         set(0,'pointerlocation',p0);
@@ -400,20 +499,30 @@ switch flag
     otherwise
         ax = info.axis;
 end
+
+% center
+o = mean(ax,2);
+
+% main axis vector
 u = (ax(:,2)-ax(:,1))/2;
 
-% some constants
-normu2 = sum(u.^2);
-v = [u(2); -u(1)];
-o = mean(ax,2);
-x = p-o;
+% change to a referential that has the requested aspect ratio
+u2 = u;
+u2(2) = u2(2) * yadjust;
+
+% orthogonal vector
+v2 = [u2(2); -u2(1)];
 
 % eccentricity
 switch flag
     case 'width'
-        uc = sum(x.*u)/normu2;
-        vc = sum(x.*v)/normu2;
-        e = abs(vc / (sin(acos(uc))));
+        % project point on u2 and v2
+        center = mean(ax,2);
+        x2 = (p-center);
+        x2(2) = x2(2) * yadjust; % change of referential
+        uc = sum(x2.*u2)/sum(u2.^2);
+        vc = sum(x2.*v2)/sum(u2.^2);
+        e = abs(vc / (sin(acos(uc)))); % don't remember why this formula...
         info.eccentricity = e;
     otherwise
         e  = info.eccentricity;
@@ -423,25 +532,28 @@ end
 switch flag
     case 'ring'
         center = mean(ax,2);
-        x = (p-center);
-        u = (ax(:,2)-ax(:,1))/2;
-        v = [u(2); -u(1)];
-        relradius = sqrt((x'*u)^2 + (x'*v/e)^2) / norm(u)^2;
+        x2 = (p-center);
+        x2(2) = x2(2) * yadjust; % change of referential
+        relradius = sqrt((x2'*u2)^2 + (x2'*v2/e)^2) / norm(u2)^2;
         info.relradius = relradius;
     otherwise
         relradius = info.relradius;
 end
 
 % update display
-t = 0:.05:1;
+t = 0:.02:1;
 udata = cos(2*pi*t);
 vdata = e*sin(2*pi*t);
 if ~isempty(relradius)
         udata = [udata NaN relradius*udata];
         vdata = [vdata NaN relradius*vdata];
 end
-xdata = o(1) + u(1)*udata + v(1)*vdata;
-ydata = o(2) + u(2)*udata + v(2)*vdata;
+
+% ellipse contour: go back to the axes referential
+xdata = o(1) + u2(1)*udata + v2(1)*vdata;
+ydata = o(2) + (u2(2)*udata + v2(2)*vdata) / yadjust;
+
+% display
 set(hl,'xdata',xdata,'ydata',ydata)
 drawnow update
 
@@ -492,3 +604,39 @@ np = size(x,2);
 L = zeros(1,np);
 for i=2:np, L(i) = L(i-1)+norm(x(i,:)-x(i-1,:)); end
 if ~isempty(L), x = interp1(L,x,0:ds:L(end)); end
+
+%------------
+% ELLIPSE
+%------------
+
+% Ellipse defined either by center, main radius vector and eccentricity, or
+% by its bilinear equation (x-c)'A(x-c) = 1,
+
+function [u, e, A] = EllipseAffinity(u,e,A,M)
+
+% ellipse equation becomes, for y=Mx: (y-Mc)'(M^-1' A M^-1)(y-Mc) = 1
+M1 = M^-1;
+A = M1'*A*M1;
+[u, e] = EllipseSym2Vector(A);
+
+%---
+function A = EllipseVector2Sym(u,e)
+
+% (U,c) is the referential of the ellipse, x->y=U'(x-c) returns coordinates
+% in this referential, in which the ellipse equation is
+% y(1)^2 + y(2)^2/e^2 = r^2
+r = norm(u);
+u = u/r;
+U = [[-u(2); u(1)] u];
+A = U*(diag([1/e^2 1])/r^2)*U';
+
+%---
+function [u e] = EllipseSym2Vector(A)
+
+% eigenvalue decomposition returns U, r and e as above
+[U D] = svd(A); % better use svd than eig because output is real even if A is not exactly symmetric
+r = D(2,2)^-(1/2);
+e = D(1,1)^-(1/2) / r;
+u = r*U(:,2);
+
+

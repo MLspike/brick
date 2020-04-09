@@ -1,4 +1,6 @@
 function fn_figmenu(hf,varargin)
+%FN_FIGMENU Type 'fn_figmenu' to get a useful new menu in every figure 
+%---
 % function fn_figmenu
 % function fn_figmenu(hf)
 %---
@@ -11,23 +13,29 @@ function fn_figmenu(hf,varargin)
 % Thomas Deneux
 % Copyright 2007-2017
 
-if nargin==0
-    hfs = findobj('type','figure');
-    for hf = hfs'
-        m = findall(hf,'tag','fn_figmenu');
-        if isempty(m)
-            m = uimenu(hf,'label','&Utils','Tag','fn_figmenu','handlevisibility','off'); 
-        else
-            delete(get(m,'children'))
+try
+    if nargin==0
+        hfs = findobj('type','figure');
+        for hf = hfs'
+            m = findall(hf,'tag','fn_figmenu');
+            if isempty(m)
+                m = uimenu(hf,'label','&Utils','Tag','fn_figmenu','handlevisibility','off'); 
+            else
+                delete(get(m,'children'))
+            end
+            setsubmenus(m,hf)
         end
+    else
+        % cancel the menu creation for dialog figures and live script
+        % figures
+        if ~isempty(get(hf,'buttonDownFcn')) || strcmp(get(hf,'Tag'),'LiveEditorCachedFigure')
+            return
+        end
+        % 
+        % do not
+        m = uimenu(hf,'label','Utils','Tag','fn_figmenu','handlevisibility','off');
         setsubmenus(m,hf)
     end
-else
-    % check if figure is likely to be a dialog -> in such case, cancel the
-    % menu creation
-    if ~isempty(get(hf,'buttonDownFcn')), return, end
-    m = uimenu(hf,'label','Utils','Tag','fn_figmenu','handlevisibility','off');
-    setsubmenus(m,hf)
 end
 
 %---

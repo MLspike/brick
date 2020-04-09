@@ -1,4 +1,6 @@
 function s = fn_num2str(x,varargin)
+%FN_NUM2STR Convert numeric to char, unless input is already char!, can return a cell array
+%---
 % function s = fn_num2str(x[,'cell'][,'quotestrings'][,'format'])
 %---
 % convert numerical value x into a string representation... unless s is
@@ -6,7 +8,7 @@ function s = fn_num2str(x,varargin)
 % 
 % use the 'cell' flag to make the output a cell array (the same size as x)
 %
-% See also fn_str2double, fn_strcat, fn_chardisplay
+% See also fn_str2double, fn_strcat, fn_chardisplay, fn_idx2str
 
 % Thomas Deneux
 % Copyright 2007-2017

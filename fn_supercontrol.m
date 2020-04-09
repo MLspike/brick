@@ -1,50 +1,46 @@
 classdef fn_supercontrol < hgsetget
+    %FN_SUPERCONTROL   Super arrangement of control 
+    %---
     % function X = fn_supercontrol([hp,]specs[,callback[,x0]])
     % function specs = fn_supercontrol.examplespecs
     % function fn_supercontrol('demo')
     %---
+    % Graphical control for a series of actions, each determined by a set
+    % of parameters.  
+    % 
     % Input:
     % - hp          uipanel handle
     % - specs       structure with fields:
-    %               . name      string
-    %               . controls  structure with fields (* is mandatory):
-    %                           style*  popupmenu, edit, checkbox,
-    %                                   radiobutton, togglebutton,
-    %                                   pushbutton, stepper, file or dir 
-    %                           string  the 'string' property of the
-    %                                   control
-    %                           length* relative width occupied by the
-    %                                   control + its label if any
-    %                           default* default value (type depends on
-    %                                   control style)
-    %                           label   a label placed on the left
-    %                           labellength     relative width occupied by
-    %                                   the label (set to 0 if no label)
-    %                           callback        for push button only:
-    %                                   - function with prototype 
-    %                                   valuek = fun(value) where value is
-    %                                   a cell array and valuek an element
-    %                                   of this array [MORE DOC NEEDED]
-    %                                   - or character array: flag that
-    %                                   will be sent to X.callback
-    %                           type    type of the value (useful in
-    %                                   particular for the 'edit' style)
-    %                           more    more properties stored in a cell
-    %                                   array with successive pairs of
-    %                                   property names/values
-    % - callback    function to be executed when control values are
-    %               changed by user, with prototype @(x)fun(x),
-    %               where x is X.x (see below)
+    %   . name      string
+    %   . controls  structure with fields (* is mandatory):
+    %       style*  popupmenu, edit, checkbox, radiobutton, togglebutton,
+    %               pushbutton, stepper, file or dir 
+    %       string  the 'string' property of the control
+    %       length* relative width occupied by the control + its label if
+    %               any 
+    %       default* default value (type depends on control style)
+    %       label   a label placed on the left
+    %       labellength     relative width occupied by the label (set to 0
+    %               if no label) 
+    %       callback        function to be evaluated after value change or
+    %               button press, with prototype value = fun(value), where
+    %               value is the cell array of current values on the line
+    %       type    type of the value (useful in particular for the 'edit'
+    %               style) 
+    %       more    more properties stored in a cell array with successive
+    %               pairs of property names/values
+    % - callback    function to be executed when control values are changed
+    %               by user, with prototype @(x)fun(x), where x is X.x (see
+    %               below)
     % - x0          initial value (see below comments on X.x)
     %
     % Output:
     % - X           fn_supercontrol object; X.x is a structure that
     %               stores the values, with fields:
-    %               .name       string
-    %               .active     logical
-    %               .value      cell array with values (one per
-    %                           control in the specs of the same
-    %                           name)
+    %   .name       string
+    %   .active     logical
+    %   .value      cell array with values (one per control in the specs of
+    %               the same name)
     %
     % One can change the values either by user action (acionning
     % the controls) or by setting the value of X.x.
@@ -163,7 +159,7 @@ classdef fn_supercontrol < hgsetget
             if isequal(oldx,x), return, end
             if isempty(x), x = struct('name',{},'active',{},'value',{}); end % just to make sure
             X.x_data = x;
-            if length(x)>=length(oldx) && isequal({x.name},{oldx.name})
+            if length(x)>=length(oldx) && isequal({x(1:length(oldx)).name},{oldx.name})
                 % change line contents only
                 for i=1:length(oldx), display_contentvalue(X,i), end
                 for i=length(oldx)+1:length(x), display_line(X,i), end
@@ -178,7 +174,7 @@ classdef fn_supercontrol < hgsetget
             nx = length(X.x_data);
         end
         function b = get.immediateupdate(X)
-            b = logical(get(X.immupdcontrol,'value'));
+            b = boolean(get(X.immupdcontrol,'value'));
         end
         function set.immediateupdate(X,b)
             set(X.immupdcontrol,'value',b)
@@ -425,17 +421,9 @@ classdef fn_supercontrol < hgsetget
             speck = X.specs(kspec).controls(k);
             switch speck.style
                 case 'pushbutton'
-                    fun = speck.callback;
-                    if isempty(fun)
-                        disp 'no action for push button'
-                        return
-                    elseif ischar(fun)
-                        feval(X.callback,fun)
-                    else
-                        vali = X.x_data(i).value;
-                        val = feval(fun,vali);
-                        if isempty(val), return, end
-                    end
+                    % no value change here, but see below for callback
+                    % action
+                    val = X.x_data(i).value{k};
                 case 'popupmenu'
                     str = speck.string;
                     val = str{get(u,'value')};
@@ -455,20 +443,25 @@ classdef fn_supercontrol < hgsetget
                         end
                     end
                 case {'checkbox' 'togglebutton' 'radiobutton'}
-                    val = logical(get(u,'value'));
+                    val = boolean(get(u,'value'));
                 case 'stepper'
                     val = get(u,'value');
                 otherwise
                     error('this control style is not handled yet')
             end
             X.x_data(i).value{k} = val;
+            % control's own callback
+            if isfield(speck,'callback') && ~isempty(speck.callback)
+                X.x_data(i).value = feval(speck.callback,X.x_data(i).value);
+                display_contentvalue(X,i)
+            end
             % eval fn_supercontrol callback
             X.activechg = X.x(i).active;
             evalfun(X)
         end
         function data_toggleactive(X,u)
             i = get(get(u,'parent'),'userdata');
-            X.x_data(i).active = logical(get(u,'value'));
+            X.x_data(i).active = boolean(get(u,'value'));
             % eval fn_supercontrol callback
             X.activechg = true;
             evalfun(X)

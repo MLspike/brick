@@ -1,4 +1,6 @@
 function fn_imvalue(varargin)
+%FN_IMVALUE Automatic link graphs and images for point selection and zooming (try 'fn_imvalue demo')
+%---
 % fn_imvalue [image] [xy|xonly]
 % fn_imvalue clean
 % fn_imvalue end
@@ -49,12 +51,16 @@ end
 %-----------
 function init(axisimage,xonly)
 
-set(0,'DefaultImageCreateFcn',{@imv_initAxesChildren})
-set(0,'DefaultLineCreateFcn',{@imv_initAxesChildren})
-
 infobase.axisimage = axisimage;
 infobase.xonly = xonly;
+if isequal(infobase, getappdata(0,'fn_imvalue'))
+    % already initialized
+    return
+end
 setappdata(0,'fn_imvalue',infobase)
+
+set(0,'DefaultImageCreateFcn',{@imv_initAxesChildren})
+set(0,'DefaultLineCreateFcn',{@imv_initAxesChildren})
 
 for ha = findobj('type','axes')'
     initAxes(ha,'')
@@ -206,7 +212,9 @@ else
     info1 = getappdata(hlist(1),'fn_imvalue');
     if isimg
         if ~isfield(info1,'ImPoint')
-            warning('there is a bug here, should be fixed') %#ok<WNTAG>
+            if fn_dodebug
+                warning('there is a bug here, should be fixed') %#ok<WNTAG>
+            end
             newpoint = [];
         else
             newpoint = info1.ImPoint;

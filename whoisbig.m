@@ -1,4 +1,6 @@
 function whoisbig(varargin)
+%WHOISBIG Type 'whoisbig' to check which data takes a lot of memory 
+%---
 % function whoisbig([var][,minsize])
 %---
 % Input:
@@ -81,9 +83,9 @@ w = w(ord);
 ok = ([w.bytes]>=minsize);
 
 % (add also object which might be container of large variables through handles)
-matlabclasses = {'logical' 'char' 'single' 'double' 'uint8' 'uint16' 'uint32' 'uint64' 'int8' 'int16' 'int32' 'int64' 'struct' 'cell'};
+matlabclasses = {'logical' 'char' 'single' 'double' 'uint8' 'uint16' 'uint32' 'uint64' 'int8' 'int16' 'int32' 'int64' 'struct' 'cell' 'table'};
 okclasses = [matlabclasses 'alias'];
-for k = find(ok & ~ismember({w.class},okclasses))
+for k = find(~ok & ~ismember({w.class},okclasses))
     % add variables who are small but which, because they are handle
     % object, could in fact contain large objects
     if incaller
@@ -93,7 +95,7 @@ for k = find(ok & ~ismember({w.class},okclasses))
     else
         vark = var;
     end
-    ok(k) = ~isgraphics(vark) && isvalid(vark);
+    ok(k) = any(~isgraphics(vark) & isvalid(vark)); % can be an object with multiple elements
 end
 if ~any(ok)
     fprintf('no variable is big (total: %iKB)\n',round(sum([w.bytes])/2^10))

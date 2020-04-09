@@ -1,4 +1,6 @@
-function [p hl] = fn_comparedistrib(x,y,method,varargin)
+function [p hl] = fn_comparedistrib(x,y,varargin)
+%FN_COMPAREDISTRIB Perform a nonparametric test and display data points and results
+%---
 % function [pval hl] = fn_comparedistrib(x,y[,test][,'tail','left|right|both']
 %       [,'showmean'][,'ylim',ylim][,'xlabels',xlabels][,'pdisplaymode','ns|p'])
 %---
@@ -14,14 +16,24 @@ function [p hl] = fn_comparedistrib(x,y,method,varargin)
 %           'bootstrap' (test on the mean)
 %           p - providing a p-value results in skipping the test and
 %           displaying thin p-value
+%
+% See also fn_markpvalue
 
 % Thomas Deneux
 % Copyright 2015-2017
 
 % Input
-if nargin<2, y = 0; end
-if nargin<3, method = fn_switch(isscalar(y),'signtest','ranksum'); end
-i = 0; tail = 'both'; ylim = []; showmean = false; xlabels = {};
+if nargin<2
+    if isvector(x)
+        y = 0;
+    else
+        if size(x,2)~=2
+            error 'single matrix input must have two columns'
+        end
+        [x y] = deal(x(:,1),x(:,2));
+    end
+end
+i = 0; tail = 'both'; ylim = []; showmean = false; xlabels = {}; method = [];
 pdisplaymode = 'ns';
 while i<length(varargin)
     i = i+1;
@@ -40,9 +52,16 @@ while i<length(varargin)
             pdisplaymode = varargin{i};
         case 'showmean'
             showmean = true;
+        case {'signtest' 'ranksum' 'signrank'}
+            method = varargin{i};
+        case {'p' 'ns'}
+            pdisplaymode = varargin{i};
         otherwise
             error('unknown flag ''%s''',varargin{i})
     end
+end
+if isempty(method)
+    method = fn_switch(isscalar(y),'signtest','ranksum'); 
 end
 
 % p-value
@@ -73,8 +92,12 @@ if dualdisplay
     xlim = [0 3];
     alldata = [row(x) row(y)];
     if strcmp(method,'ranksum')
-        xx = [ones(1,length(x)) 2*ones(1,length(y))];
-        hl{1} = plot(xx,alldata,'o','color',[1 1 1]*.6); % no connecting lines
+        % no connecting lines
+        a = plot(ones(1,length(x)),x,'o','color',[1 1 1]*.6);
+        hold on
+        b = plot(2*ones(1,length(y)),y,'o','color',[1 1 1]*.6);
+        hold off
+        hl{1} = [a b];
     else
         hl{1} = plot(1:2,[row(x); row(y)],'color',[1 1 1]*.6,'marker','o'); % connecting lines
     end
@@ -86,10 +109,10 @@ if dualdisplay
             hl{2}(1) = line(1:2,[nmedian(x) nmedian(y)],'color','k','linestyle','none','marker','*');
             hl{2}(2) = line(1:2,[nmedian(x) nmedian(y)],'color','k','linewidth',2);
         otherwise
-            % show individual medians, but also a slope indicating the
+            % show individual means (not medians), but also a slope indicating the
             % median difference (which is different from the difference
             % of the medians!)
-            hl{2}(1) = line(1:2,[nmedian(x) nmedian(y)],'color','k','marker','*','linestyle','none');
+            hl{2}(1) = line(1:2,[nmean(x) nmean(y)],'color','k','marker','*','linestyle','none');
             yl = mean([nmedian(x) nmedian(y)])+[-.5 .5]*nmedian(y-x);
             hl{2}(2) = line(1:2,yl,'color','k','linewidth',2);
     end
